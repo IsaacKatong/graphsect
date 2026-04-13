@@ -50,7 +50,21 @@ export default function ForceGraph3DView({
     return () => {
       graph._destructor?.();
     };
-  }, [data, handleNodeClick]);
+    // Only create the instance once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (graphRef.current) {
+      graphRef.current.graphData(data);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (graphRef.current) {
+      graphRef.current.onNodeClick(handleNodeClick);
+    }
+  }, [handleNodeClick]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }
