@@ -124,15 +124,21 @@ export function filterByConnectedDatums(
 ): ExternalGraph {
   if (filter.selectedDatumIDs.length === 0) return graph;
   const datumIDSet = new Set(filter.selectedDatumIDs);
+  const datums = graph.datums.filter((d) => datumIDSet.has(d.id));
   const edges = graph.edges.filter(
-    (e) => datumIDSet.has(e.fromDatumID) || datumIDSet.has(e.toDatumID),
+    (e) => datumIDSet.has(e.fromDatumID) && datumIDSet.has(e.toDatumID),
   );
   const edgeIDSet = new Set(
     edges.map((e) => `${e.fromDatumID}->${e.toDatumID}`),
   );
   return {
     ...graph,
+    datums,
     edges,
+    datumTags: graph.datumTags.filter((t) => datumIDSet.has(t.datumID)),
+    datumDimensions: graph.datumDimensions.filter((d) =>
+      datumIDSet.has(d.datumID),
+    ),
     edgeTags: graph.edgeTags.filter((t) => edgeIDSet.has(t.edgeID)),
   };
 }

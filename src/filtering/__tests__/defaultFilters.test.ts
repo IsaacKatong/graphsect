@@ -133,20 +133,32 @@ describe("filterByEdgeTags", () => {
 });
 
 describe("filterByConnectedDatums", () => {
-  it("keeps edges where source or target is in selectedDatumIDs", () => {
+  it("keeps only selected datums and edges between them", () => {
     const graph = createFilterTestGraph();
     const result = filterByConnectedDatums(
       graph,
-      createConnectedDatumsFilter(["d3"]),
+      createConnectedDatumsFilter(["d2", "d3"]),
     );
-    expect(result.edges).toHaveLength(2);
+    expect(result.datums.map((d) => d.id)).toEqual(["d2", "d3"]);
+    expect(result.edges).toHaveLength(1);
+    expect(result.edges[0].fromDatumID).toBe("d2");
+  });
+
+  it("returns only the selected datum with no edges when selected alone", () => {
+    const graph = createFilterTestGraph();
+    const result = filterByConnectedDatums(
+      graph,
+      createConnectedDatumsFilter(["d1"]),
+    );
+    expect(result.datums.map((d) => d.id)).toEqual(["d1"]);
+    expect(result.edges).toHaveLength(0);
   });
 
   it("prunes edge tags for removed edges", () => {
     const graph = createFilterTestGraph();
     const result = filterByConnectedDatums(
       graph,
-      createConnectedDatumsFilter(["d4"]),
+      createConnectedDatumsFilter(["d3", "d4"]),
     );
     expect(result.edges).toHaveLength(1);
     expect(result.edgeTags.map((t) => t.name)).toEqual(["references"]);
