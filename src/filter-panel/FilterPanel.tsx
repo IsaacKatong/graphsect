@@ -131,13 +131,13 @@ function extractFilterOptions(graph: ExternalGraph): FilterOptions {
 }
 
 const panelStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "12px",
-  left: "12px",
   display: "flex",
   flexWrap: "wrap",
   gap: "8px",
-  zIndex: 50,
+  pointerEvents: "auto",
+  minWidth: 0,
+  flex: "1 1 0",
+  marginRight: "12px",
 };
 
 const clearButtonStyle: React.CSSProperties = {
