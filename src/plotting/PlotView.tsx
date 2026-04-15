@@ -309,6 +309,7 @@ const baseLayout: Partial<Plotly.Layout> = {
   font: { color: "#e2e8f0", family: "system-ui, sans-serif" },
   margin: { l: 60, r: 30, t: 30, b: 60 },
   autosize: true,
+  showlegend: false,
 };
 
 const axisStyle = {
