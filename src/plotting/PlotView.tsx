@@ -192,13 +192,13 @@ const baseLayout: Partial<Plotly.Layout> = {
 
 const axisStyle = {
   color: "#94a3b8",
-  gridcolor: "#334155",
-  zerolinecolor: "#475569",
+  showgrid: false,
+  zeroline: false,
 };
 
 const sceneAxisStyle = {
   color: "#94a3b8",
-  gridcolor: "#334155",
+  showgrid: false,
   backgroundcolor: "#0f172a",
 };
 
