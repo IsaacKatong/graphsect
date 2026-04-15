@@ -7,12 +7,16 @@ type DimensionSelectorProps = {
   graph: ExternalGraph;
   selected: string[];
   onSelectionChange: (dimensions: string[]) => void;
+  showEdges: boolean;
+  onShowEdgesChange: (showEdges: boolean) => void;
 };
 
 export default function DimensionSelector({
   graph,
   selected,
   onSelectionChange,
+  showEdges,
+  onShowEdgesChange,
 }: DimensionSelectorProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,12 +94,24 @@ export default function DimensionSelector({
             );
           })}
           {selected.length > 0 && (
-            <button
-              onClick={() => onSelectionChange([])}
-              style={clearStyle}
-            >
-              Clear
-            </button>
+            <>
+              <div style={dividerStyle} />
+              <label style={optionStyle}>
+                <input
+                  type="checkbox"
+                  checked={showEdges}
+                  onChange={() => onShowEdgesChange(!showEdges)}
+                  style={checkboxStyle}
+                />
+                Show edges
+              </label>
+              <button
+                onClick={() => onSelectionChange([])}
+                style={clearStyle}
+              >
+                Clear
+              </button>
+            </>
           )}
         </div>
       )}
@@ -180,6 +196,11 @@ const disabledOptionStyle: React.CSSProperties = {
 
 const checkboxStyle: React.CSSProperties = {
   accentColor: "#6366f1",
+};
+
+const dividerStyle: React.CSSProperties = {
+  borderTop: "1px solid #334155",
+  margin: "4px 0",
 };
 
 const clearStyle: React.CSSProperties = {

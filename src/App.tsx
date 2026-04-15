@@ -38,6 +38,7 @@ function GraphSect({
   selectedDimensions: controlledDimensions,
 }: GraphSectProps) {
   const [selectedNode, setSelectedNode] = useState<ForceGraphNode | null>(null);
+  const [showEdges, setShowEdges] = useState(false);
   const { filterState, setFilter, clearAllFilters } = useFilterState();
   const internal = useDimensionSelection();
 
@@ -74,7 +75,7 @@ function GraphSect({
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {showPlot ? (
-        <PlotView graph={filteredGraph} dimensions={activeDimensions} />
+        <PlotView graph={filteredGraph} dimensions={activeDimensions} showEdges={showEdges} />
       ) : (
         <ForceGraph3DView data={graphData} onNodeClick={setSelectedNode} />
       )}
@@ -95,6 +96,8 @@ function GraphSect({
               graph={graph}
               selected={activeDimensions}
               onSelectionChange={handleDimensionsChange}
+              showEdges={showEdges}
+              onShowEdgesChange={setShowEdges}
             />
           )}
         </div>
