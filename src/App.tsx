@@ -74,10 +74,11 @@ function GraphSect({
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {showPlot ? (
-        <PlotView graph={filteredGraph} dimensions={activeDimensions} showEdges={showEdges} />
-      ) : (
+      <div style={{ width: "100%", height: "100%", display: showPlot ? "none" : "block" }}>
         <ForceGraph3DView data={graphData} onNodeClick={setSelectedNode} />
+      </div>
+      {showPlot && (
+        <PlotView graph={filteredGraph} dimensions={activeDimensions} showEdges={showEdges} />
       )}
       {(showFilters || showDimensionSelector) && (
         <div style={toolbarStyle}>
