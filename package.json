@@ -4,7 +4,7 @@
   "private": true,
   "description": "A framework for displaying graphs with rich metadata to improve understanding through visualization.",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"

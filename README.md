@@ -13,6 +13,10 @@ graphSect makes the dissecting, displaying, and digesting of structured, connect
 - **Filtering** — Apply filters to focus on specific subsets of nodes, reducing visual clutter and highlighting what matters.
 - **Alternative Views** — Switch to value-based graph views that leverage dimensions associated with nodes, enabling different analytical perspectives on the same data.
 
+## Examples
+
+The `examples/` folder contains example graph JSON files. When the dev server starts, you are prompted to select one of the available examples to render. To add your own, drop a JSON file matching the `ExternalGraph` schema into the `examples/` folder and it will appear in the selection prompt automatically.
+
 ## Usage
 
 ### Basic

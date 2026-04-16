@@ -16,7 +16,6 @@ import {
 } from "./filtering/types";
 import { useFilterState } from "./filtering/useFilterState";
 import { applyFilters } from "./filtering/applyFilters";
-import graphJson from "../local-storage/graph.json";
 
 type GraphSectProps = {
   graph: ExternalGraph;
@@ -125,10 +124,4 @@ const toolbarStyle: React.CSSProperties = {
   pointerEvents: "none",
 };
 
-export default function App() {
-  return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <GraphSect graph={graphJson as ExternalGraph} />
-    </div>
-  );
-}
+export { GraphSect as default, type GraphSectProps };
