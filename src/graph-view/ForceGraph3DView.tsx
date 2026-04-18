@@ -47,7 +47,16 @@ export default function ForceGraph3DView({
 
     graphRef.current = graph;
 
+    const observer = new ResizeObserver(() => {
+      if (containerRef.current) {
+        graph.width(containerRef.current.clientWidth);
+        graph.height(containerRef.current.clientHeight);
+      }
+    });
+    observer.observe(containerRef.current);
+
     return () => {
+      observer.disconnect();
       graph._destructor?.();
     };
     // Only create the instance once on mount
