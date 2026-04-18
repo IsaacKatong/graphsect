@@ -31,7 +31,21 @@ type PlotViewProps = {
   graph: ExternalGraph;
   dimensions: string[];
   showEdges?: boolean;
+  onNodeClick?: (datumId: string) => void;
 };
+
+type PlotClickEvent = {
+  points?: Array<{ customdata?: unknown }>;
+};
+
+function handlePlotClick(
+  event: PlotClickEvent,
+  onNodeClick?: (datumId: string) => void,
+) {
+  if (!onNodeClick) return;
+  const datumId = event.points?.[0]?.customdata;
+  if (typeof datumId === "string") onNodeClick(datumId);
+}
 
 type DatumPlotData = {
   datumId: string;
@@ -142,7 +156,7 @@ function buildEdgeTraces3D(
   }];
 }
 
-export default function PlotView({ graph, dimensions, showEdges }: PlotViewProps) {
+export default function PlotView({ graph, dimensions, showEdges, onNodeClick }: PlotViewProps) {
   const plotData = useMemo(
     () => extractPlotData(graph, dimensions),
     [graph, dimensions],
@@ -157,11 +171,11 @@ export default function PlotView({ graph, dimensions, showEdges }: PlotViewProps
   const count = dimensions.length;
 
   if (count === 1) {
-    return <Plot1D data={plotData} edges={edges} dimension={dimensions[0]} />;
+    return <Plot1D data={plotData} edges={edges} dimension={dimensions[0]} onNodeClick={onNodeClick} />;
   }
   if (count === 2) {
     return (
-      <Plot2D data={plotData} edges={edges} xDim={dimensions[0]} yDim={dimensions[1]} />
+      <Plot2D data={plotData} edges={edges} xDim={dimensions[0]} yDim={dimensions[1]} onNodeClick={onNodeClick} />
     );
   }
   return (
@@ -171,6 +185,7 @@ export default function PlotView({ graph, dimensions, showEdges }: PlotViewProps
       xDim={dimensions[0]}
       yDim={dimensions[1]}
       zDim={dimensions[2]}
+      onNodeClick={onNodeClick}
     />
   );
 }
@@ -179,10 +194,12 @@ function Plot1D({
   data,
   edges,
   dimension,
+  onNodeClick,
 }: {
   data: DatumPlotData[];
   edges: EdgePlotData[];
   dimension: string;
+  onNodeClick?: (datumId: string) => void;
 }) {
   const edgeTraces = useMemo(() => {
     if (edges.length === 0) return [];
@@ -215,6 +232,7 @@ function Plot1D({
           x: data.map((d) => d.values[dimension]),
           y: data.map((d) => d.name),
           text: data.map((d) => d.name),
+          customdata: data.map((d) => d.datumId),
           type: "scatter",
           mode: "markers" as const,
           marker: { color: "#6366f1", size: 12 },
@@ -229,6 +247,7 @@ function Plot1D({
       config={plotConfig}
       style={plotStyle}
       useResizeHandler
+      onClick={(e) => handlePlotClick(e, onNodeClick)}
     />
   );
 }
@@ -238,11 +257,13 @@ function Plot2D({
   edges,
   xDim,
   yDim,
+  onNodeClick,
 }: {
   data: DatumPlotData[];
   edges: EdgePlotData[];
   xDim: string;
   yDim: string;
+  onNodeClick?: (datumId: string) => void;
 }) {
   const edgeTraces = useMemo(
     () => edges.length > 0 ? buildEdgeTraces2D(data, edges, xDim, yDim) : [],
@@ -257,6 +278,7 @@ function Plot2D({
           x: data.map((d) => d.values[xDim]),
           y: data.map((d) => d.values[yDim]),
           text: data.map((d) => d.name),
+          customdata: data.map((d) => d.datumId),
           type: "scatter",
           mode: "text+markers" as const,
           textposition: "top center" as const,
@@ -273,6 +295,7 @@ function Plot2D({
       config={plotConfig}
       style={plotStyle}
       useResizeHandler
+      onClick={(e) => handlePlotClick(e, onNodeClick)}
     />
   );
 }
@@ -283,12 +306,14 @@ function Plot3D({
   xDim,
   yDim,
   zDim,
+  onNodeClick,
 }: {
   data: DatumPlotData[];
   edges: EdgePlotData[];
   xDim: string;
   yDim: string;
   zDim: string;
+  onNodeClick?: (datumId: string) => void;
 }) {
   const edgeTraces = useMemo(
     () => edges.length > 0 ? buildEdgeTraces3D(data, edges, xDim, yDim, zDim) : [],
@@ -304,6 +329,7 @@ function Plot3D({
           y: data.map((d) => d.values[yDim]),
           z: data.map((d) => d.values[zDim]),
           text: data.map((d) => d.name),
+          customdata: data.map((d) => d.datumId),
           type: "scatter3d",
           mode: "text+markers" as const,
           textposition: "top center" as const,
@@ -324,6 +350,7 @@ function Plot3D({
       config={plotConfig}
       style={plotStyle}
       useResizeHandler
+      onClick={(e) => handlePlotClick(e, onNodeClick)}
     />
   );
 }

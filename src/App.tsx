@@ -77,7 +77,15 @@ function GraphSect({
         <ForceGraph3DView data={graphData} onNodeClick={setSelectedNode} />
       </div>
       {showPlot && (
-        <PlotView graph={filteredGraph} dimensions={activeDimensions} showEdges={showEdges} />
+        <PlotView
+          graph={filteredGraph}
+          dimensions={activeDimensions}
+          showEdges={showEdges}
+          onNodeClick={(datumId) => {
+            const node = graphData.nodes.find((n) => n.id === datumId);
+            if (node) setSelectedNode(node);
+          }}
+        />
       )}
       {(showFilters || showDimensionSelector) && (
         <div style={toolbarStyle}>
@@ -102,12 +110,10 @@ function GraphSect({
           )}
         </div>
       )}
-      {!showPlot && (
-        <NodeDetailPanel
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
-        />
-      )}
+      <NodeDetailPanel
+        node={selectedNode}
+        onClose={() => setSelectedNode(null)}
+      />
     </div>
   );
 }
