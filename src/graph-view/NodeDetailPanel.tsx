@@ -1,10 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { ForceGraphNode } from "../external-graph/transformGraph";
 
 type NodeDetailPanelProps = {
   node: ForceGraphNode | null;
   onClose: () => void;
 };
+
+function renderMarkdown(content: string): {
+  element: React.ReactNode;
+  error: string | null;
+} {
+  try {
+    return {
+      element: <ReactMarkdown>{content}</ReactMarkdown>,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      element: <pre style={contentStyle}>{content}</pre>,
+      error: err instanceof Error ? err.message : "Invalid markdown",
+    };
+  }
+}
 
 export default function NodeDetailPanel({
   node,
@@ -19,10 +37,20 @@ export default function NodeDetailPanel({
     return () => document.removeEventListener("keydown", onKey);
   }, [node, onClose]);
 
+  const markdown = useMemo(() => {
+    if (node?.type === "MARKDOWN") return renderMarkdown(node.content);
+    return null;
+  }, [node]);
+
   if (!node) return null;
 
   return (
     <div style={panelStyle}>
+      {markdown?.error && (
+        <div style={errorStyle}>
+          Invalid markdown: {markdown.error}
+        </div>
+      )}
       <div style={headerStyle}>
         <h2 style={titleStyle}>{node.name}</h2>
         <button onClick={onClose} style={closeButtonStyle}>
@@ -61,7 +89,11 @@ export default function NodeDetailPanel({
 
       <div style={sectionStyle}>
         <span style={labelStyle}>Content</span>
-        <pre style={contentStyle}>{node.content}</pre>
+        {markdown && !markdown.error ? (
+          <div style={markdownStyle}>{markdown.element}</div>
+        ) : (
+          <pre style={contentStyle}>{node.content}</pre>
+        )}
       </div>
     </div>
   );
@@ -146,4 +178,22 @@ const contentStyle: React.CSSProperties = {
   padding: "12px",
   borderRadius: "6px",
   margin: 0,
+};
+
+const markdownStyle: React.CSSProperties = {
+  fontSize: "13px",
+  backgroundColor: "#0f172a",
+  padding: "12px",
+  borderRadius: "6px",
+  lineHeight: 1.5,
+  overflowWrap: "break-word",
+};
+
+const errorStyle: React.CSSProperties = {
+  backgroundColor: "#7f1d1d",
+  color: "#fecaca",
+  padding: "10px 12px",
+  borderRadius: "6px",
+  marginBottom: "12px",
+  fontSize: "13px",
 };
