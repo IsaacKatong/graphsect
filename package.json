@@ -1,19 +1,46 @@
 {
   "name": "graphsect",
   "version": "0.1.0",
-  "private": true,
   "description": "A framework for displaying graphs with rich metadata to improve understanding through visualization.",
+  "type": "module",
+  "main": "./dist/graphsect.cjs",
+  "module": "./dist/graphsect.mjs",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/graphsect.mjs",
+      "require": "./dist/graphsect.cjs"
+    }
+  },
+  "bin": {
+    "graphsect": "./scripts/dev.mjs"
+  },
+  "files": [
+    "dist",
+    "src",
+    "examples",
+    "scripts",
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.lib.json"
+  ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc && vite build",
+    "build:lib": "BUILD_TARGET=lib vite build && tsc -p tsconfig.lib.json",
     "preview": "vite preview",
+    "prepublishOnly": "npm run build:lib",
     "test": "vitest"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
   },
   "dependencies": {
     "3d-force-graph": "^1.80.0",
     "plotly.js-dist-min": "^3.5.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
     "react-plotly.js": "^2.6.0"
   },
   "devDependencies": {
@@ -24,6 +51,8 @@
     "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "typescript": "^6.0.2",
     "vite": "^8.0.8",
     "vitest": "^4.1.4"
