@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import GraphSect from "./App";
+import ShowcaseApp from "./ShowcaseApp";
 import { ExternalGraph } from "./external-graph/types";
 
 const exampleModules = import.meta.glob<ExternalGraph>("../examples/*.json", {
@@ -9,9 +10,11 @@ const exampleModules = import.meta.glob<ExternalGraph>("../examples/*.json", {
 });
 
 const selectedName = import.meta.env.VITE_EXAMPLE_GRAPH;
-const graphJson = Object.entries(exampleModules).find(
-  ([path]) => path.includes(`/${selectedName}.json`),
-)?.[1];
+const graphJson = selectedName
+  ? Object.entries(exampleModules).find(([path]) =>
+      path.includes(`/${selectedName}.json`),
+    )?.[1]
+  : undefined;
 
 const root = document.getElementById("root");
 if (root) {
@@ -22,9 +25,7 @@ if (root) {
           <GraphSect graph={graphJson} />
         </div>
       ) : (
-        <div style={{ padding: 24, fontFamily: "system-ui" }}>
-          No example graph loaded.
-        </div>
+        <ShowcaseApp />
       )}
     </StrictMode>,
   );

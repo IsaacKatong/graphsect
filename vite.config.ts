@@ -3,9 +3,11 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
 const isLib = process.env.BUILD_TARGET === "lib";
+const isPages = process.env.BUILD_TARGET === "pages";
 
 export default defineConfig({
   plugins: [react()],
+  base: isPages ? "/graphsect/" : "/",
   build: isLib
     ? {
         lib: {

@@ -30,6 +30,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "tsc && vite build",
     "build:lib": "BUILD_TARGET=lib vite build && tsc -p tsconfig.lib.json",
+    "build:pages": "tsc && BUILD_TARGET=pages vite build",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",
     "test": "vitest"
