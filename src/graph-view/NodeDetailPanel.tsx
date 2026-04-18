@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ForceGraphNode } from "../external-graph/transformGraph";
 
 type NodeDetailPanelProps = {
@@ -9,6 +10,15 @@ export default function NodeDetailPanel({
   node,
   onClose,
 }: NodeDetailPanelProps) {
+  useEffect(() => {
+    if (!node) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [node, onClose]);
+
   if (!node) return null;
 
   return (
@@ -69,6 +79,7 @@ const panelStyle: React.CSSProperties = {
   overflowY: "auto",
   boxShadow: "-4px 0 12px rgba(0, 0, 0, 0.3)",
   fontFamily: "system-ui, sans-serif",
+  zIndex: 200,
 };
 
 const headerStyle: React.CSSProperties = {
@@ -85,11 +96,19 @@ const titleStyle: React.CSSProperties = {
 };
 
 const closeButtonStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  color: "#94a3b8",
-  fontSize: "24px",
+  background: "#334155",
+  border: "1px solid #475569",
+  borderRadius: "6px",
+  color: "#e2e8f0",
+  fontSize: "20px",
+  lineHeight: 1,
   cursor: "pointer",
+  width: "32px",
+  height: "32px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
 };
 
 const labelStyle: React.CSSProperties = {
