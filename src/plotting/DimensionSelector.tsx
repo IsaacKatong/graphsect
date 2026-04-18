@@ -9,6 +9,8 @@ type DimensionSelectorProps = {
   onSelectionChange: (dimensions: string[]) => void;
   showEdges: boolean;
   onShowEdgesChange: (showEdges: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export default function DimensionSelector({
@@ -17,8 +19,12 @@ export default function DimensionSelector({
   onSelectionChange,
   showEdges,
   onShowEdgesChange,
+  open: openProp,
+  onOpenChange,
 }: DimensionSelectorProps) {
-  const [open, setOpen] = useState(false);
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = openProp ?? openInternal;
+  const setOpen = onOpenChange ?? setOpenInternal;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const availableDimensions = useMemo(() => {

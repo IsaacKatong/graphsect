@@ -31,7 +31,10 @@ export default function ForceGraph3DView({
       ...args: unknown[]
     ) => (el: HTMLElement) => ForceGraphInstance;
 
-    const graph = init({ rendererConfig: { antialias: true } })(
+    const graph = init({
+      rendererConfig: { antialias: true },
+      controlType: "orbit",
+    })(
       containerRef.current,
     )
       .graphData(data)
@@ -47,6 +50,9 @@ export default function ForceGraph3DView({
       .linkWidth(1)
       .onNodeClick(handleNodeClick)
       .backgroundColor("#0f172a");
+
+    const controls = graph.controls?.();
+    if (controls) controls.zoomToCursor = true;
 
     graphRef.current = graph;
 

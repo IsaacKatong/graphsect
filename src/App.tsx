@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import ForceGraph3DView from "./graph-view/ForceGraph3DView";
+import GroupedGraphView from "./graph-view/GroupedGraphView";
 import NodeDetailPanel from "./graph-view/NodeDetailPanel";
 import FilterPanel from "./filter-panel/FilterPanel";
 import PlotView from "./plotting/PlotView";
 import DimensionSelector from "./plotting/DimensionSelector";
+import GroupedViewControls from "./graph-view/GroupedViewControls";
 import { useDimensionSelection } from "./plotting/useDimensionSelection";
 import {
   transformGraph,
@@ -38,6 +40,16 @@ function GraphSect({
 }: GraphSectProps) {
   const [selectedNode, setSelectedNode] = useState<ForceGraphNode | null>(null);
   const [showEdges, setShowEdges] = useState(false);
+  const [groupedMode, setGroupedMode] = useState(false);
+  const [groupedEverShown, setGroupedEverShown] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<"plot" | "grouped" | null>(
+    null,
+  );
+  const [resetToken, setResetToken] = useState(0);
+
+  useEffect(() => {
+    if (groupedMode) setGroupedEverShown(true);
+  }, [groupedMode]);
   const { filterState, setFilter, clearAllFilters } = useFilterState();
   const internal = useDimensionSelection();
 
@@ -72,10 +84,38 @@ function GraphSect({
   const showPlot = activeDimensions.length > 0;
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <div style={{ width: "100%", height: "100%", display: showPlot ? "none" : "block" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        backgroundColor: "#0f172a",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: showPlot || groupedMode ? "none" : "block",
+        }}
+      >
         <ForceGraph3DView data={graphData} onNodeClick={setSelectedNode} />
       </div>
+      {groupedEverShown && (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: showPlot || !groupedMode ? "none" : "block",
+          }}
+        >
+          <GroupedGraphView
+            data={graphData}
+            onLeafClick={setSelectedNode}
+            resetToken={resetToken}
+          />
+        </div>
+      )}
       {showPlot && (
         <PlotView
           graph={filteredGraph}
@@ -99,15 +139,27 @@ function GraphSect({
           ) : (
             <div />
           )}
-          {showDimensionSelector && (
-            <DimensionSelector
-              graph={graph}
-              selected={activeDimensions}
-              onSelectionChange={handleDimensionsChange}
-              showEdges={showEdges}
-              onShowEdgesChange={setShowEdges}
+          <div style={rightToolbarStyle}>
+            <GroupedViewControls
+              enabled={groupedMode}
+              onToggle={() => setGroupedMode((v) => !v)}
+              onReset={() => setResetToken((n) => n + 1)}
+              disabled={showPlot}
+              open={openDropdown === "grouped"}
+              onOpenChange={(o) => setOpenDropdown(o ? "grouped" : null)}
             />
-          )}
+            {showDimensionSelector && (
+              <DimensionSelector
+                graph={graph}
+                selected={activeDimensions}
+                onSelectionChange={handleDimensionsChange}
+                showEdges={showEdges}
+                onShowEdgesChange={setShowEdges}
+                open={openDropdown === "plot"}
+                onOpenChange={(o) => setOpenDropdown(o ? "plot" : null)}
+              />
+            )}
+          </div>
         </div>
       )}
       <NodeDetailPanel
@@ -128,6 +180,13 @@ const toolbarStyle: React.CSSProperties = {
   alignItems: "flex-start",
   zIndex: 50,
   pointerEvents: "none",
+};
+
+const rightToolbarStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  alignItems: "flex-start",
+  pointerEvents: "auto",
 };
 
 export { GraphSect as default, type GraphSectProps };

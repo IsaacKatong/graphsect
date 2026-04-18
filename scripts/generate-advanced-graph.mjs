@@ -61,9 +61,12 @@ const LAST_WEEK = Date.UTC(2026, 3, 11);
 
 const datumTags = [];
 const datumDimensions = [];
+const tagsByDatum = new Map();
 for (const d of datums) {
   const k = randInt(1, 5);
-  for (const tag of pickK(DATUM_TAGS, k)) {
+  const tags = pickK(DATUM_TAGS, k);
+  tagsByDatum.set(d.id, tags);
+  for (const tag of tags) {
     datumTags.push({ name: tag, datumID: d.id });
   }
 
@@ -80,13 +83,19 @@ for (const d of datums) {
   }
 }
 
-// Edges: each datum gets 2-20 outgoing edges to other datums (deduped per pair)
+// Edges: each datum gets up to 3 outgoing edges, only to datums sharing at least one tag
 const edgeSet = new Set();
 const edges = [];
 for (const d of datums) {
-  const targetCount = randInt(2, 20);
-  const others = datums.filter((o) => o.id !== d.id);
-  for (const target of pickK(others, targetCount)) {
+  const myTags = new Set(tagsByDatum.get(d.id) ?? []);
+  if (myTags.size === 0) continue;
+  const candidates = datums.filter(
+    (o) =>
+      o.id !== d.id &&
+      (tagsByDatum.get(o.id) ?? []).some((t) => myTags.has(t)),
+  );
+  const targetCount = Math.min(randInt(1, 3), candidates.length);
+  for (const target of pickK(candidates, targetCount)) {
     const key = `${d.id}->${target.id}`;
     if (edgeSet.has(key)) continue;
     edgeSet.add(key);
