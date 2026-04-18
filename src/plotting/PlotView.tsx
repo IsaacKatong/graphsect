@@ -1,6 +1,31 @@
 import { useMemo } from "react";
-import Plot from "react-plotly.js";
+import * as factoryModule from "react-plotly.js/factory";
+import * as plotlyModule from "plotly.js-dist-min";
+import type { ComponentType } from "react";
+import type { PlotParams } from "react-plotly.js";
 import { ExternalGraph } from "../external-graph/types";
+
+type FactoryFn = (plotly: unknown) => ComponentType<PlotParams>;
+
+function unwrapDefault<T>(mod: unknown): T {
+  let current: unknown = mod;
+  while (
+    current &&
+    typeof current === "object" &&
+    "default" in (current as Record<string, unknown>) &&
+    typeof (current as Record<string, unknown>).default !== "undefined"
+  ) {
+    const next = (current as Record<string, unknown>).default;
+    if (next === current) break;
+    current = next;
+  }
+  return current as T;
+}
+
+const createPlotlyComponent = unwrapDefault<FactoryFn>(factoryModule);
+const Plotly = unwrapDefault<unknown>(plotlyModule);
+
+const Plot = createPlotlyComponent(Plotly);
 
 type PlotViewProps = {
   graph: ExternalGraph;
