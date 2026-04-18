@@ -31,9 +31,12 @@ export default function ForceGraph3DView({
       ...args: unknown[]
     ) => (el: HTMLElement) => ForceGraphInstance;
 
-    const graph = init()(containerRef.current)
+    const graph = init({ rendererConfig: { antialias: true } })(
+      containerRef.current,
+    )
       .graphData(data)
       .nodeLabel("name")
+      .nodeResolution(32)
       .nodeColor(() => "#6366f1")
       .nodeVal((node: ForceGraphNode) => {
         const importance = node.dimensions["importance"];
