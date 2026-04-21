@@ -146,13 +146,24 @@ export function buildTagMeshLayout(
     }
   }
 
-  const neighborCount = (tag: string): number => {
-    const n = tree.get(tag)!;
-    return (n.parentTag ? 1 : 0) + n.childTags.length;
+  // A connection counts only for the endpoint with more datums — ties break
+  // alphabetically so the relation is deterministic and asymmetric.
+  const bigSideConnections = (tag: string): number => {
+    const self = tree.get(tag)!;
+    const neighbors: string[] = [...self.childTags];
+    if (self.parentTag) neighbors.push(self.parentTag);
+    let count = 0;
+    for (const other of neighbors) {
+      const o = tree.get(other)!;
+      if (
+        self.datumCount > o.datumCount ||
+        (self.datumCount === o.datumCount && tag < other)
+      ) {
+        count++;
+      }
+    }
+    return count;
   };
-
-  const edgeScale = (parentN: number, childN: number) =>
-    1 + connectionDistanceGain * Math.max(0, parentN + childN - 2);
 
   // ── Pass 2: assign positions in BFS order ─────────────────────────────
   const positions = new Map<string, Position>();
@@ -194,7 +205,9 @@ export function buildTagMeshLayout(
     }
 
     const gap =
-      distance * edgeScale(neighborCount(parentNode.tag), neighborCount(tag));
+      distance +
+      connectionDistanceGain *
+        (bigSideConnections(parentNode.tag) + bigSideConnections(tag));
     const parentRadius = sizeFor(parentNode.datumCount);
     const childRadius = sizeFor(node.datumCount);
     const centerToCenter = parentRadius + gap + childRadius;
