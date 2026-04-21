@@ -204,10 +204,7 @@ export function buildTagMeshLayout(
       angle = parentPos.parentAngle + (i + 1) * step;
     }
 
-    const gap =
-      distance +
-      connectionDistanceGain *
-        (bigSideConnections(parentNode.tag) + bigSideConnections(tag));
+    const gap = distance + connectionDistanceGain * bigSideConnections(tag);
     const parentRadius = sizeFor(parentNode.datumCount);
     const childRadius = sizeFor(node.datumCount);
     const centerToCenter = parentRadius + gap + childRadius;
