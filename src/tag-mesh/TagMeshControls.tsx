@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { TagMeshParams } from "./buildTagMeshLayout";
 
 type TagMeshControlsProps = {
@@ -25,11 +26,42 @@ function SliderRow({
   onChange,
 }: SliderRowProps) {
   const display = format ? format(value) : String(value);
+  const [draft, setDraft] = useState(display);
+
+  useEffect(() => {
+    setDraft(display);
+  }, [display]);
+
+  function commit(raw: string) {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setDraft(display);
+      return;
+    }
+    const clamped = Math.max(min, Math.min(max, parsed));
+    onChange(clamped);
+  }
+
   return (
     <label style={rowStyle}>
       <div style={labelRowStyle}>
         <span style={labelStyle}>{label}</span>
-        <span style={valueStyle}>{display}</span>
+        <input
+          type="number"
+          value={draft}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit((e.target as HTMLInputElement).value);
+            }
+          }}
+          style={numberInputStyle}
+        />
       </div>
       <input
         type="range"
@@ -71,7 +103,7 @@ export default function TagMeshControls({
       <SliderRow
         label="Distance between tags"
         value={params.distance}
-        min={60}
+        min={0}
         max={600}
         step={10}
         onChange={(v) => onChange({ ...params, distance: v })}
@@ -121,7 +153,8 @@ const rowStyle: React.CSSProperties = {
 const labelRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "baseline",
+  alignItems: "center",
+  gap: "8px",
   marginBottom: "4px",
 };
 
@@ -129,10 +162,18 @@ const labelStyle: React.CSSProperties = {
   color: "#cbd5e1",
 };
 
-const valueStyle: React.CSSProperties = {
+const numberInputStyle: React.CSSProperties = {
+  width: "72px",
+  padding: "2px 6px",
+  backgroundColor: "#0f172a",
   color: "#f8fafc",
+  border: "1px solid #475569",
+  borderRadius: "4px",
+  fontFamily: "inherit",
+  fontSize: "12px",
   fontVariantNumeric: "tabular-nums",
   fontWeight: 500,
+  textAlign: "right",
 };
 
 const sliderStyle: React.CSSProperties = {
