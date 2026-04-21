@@ -24,26 +24,26 @@ export type TagMeshParams = {
   maxNeighbors: number;
   sizeScale: number;
   distance: number;
+  connectionDistanceGain: number;
 };
 
 const MIN_RADIUS = 10;
 const TAU = Math.PI * 2;
 
-type PlacedTag = {
+type TreeNode = {
   tag: string;
   datumCount: number;
-  x: number;
-  y: number;
-  radius: number;
-  neighbors: string[];
-  parentAngle: number | null;
+  parentTag: string | null;
+  childTags: string[];
 };
+
+type Position = { x: number; y: number; parentAngle: number | null };
 
 export function buildTagMeshLayout(
   data: ForceGraphData,
   params: TagMeshParams,
 ): TagMeshLayout {
-  const { maxNeighbors, sizeScale, distance } = params;
+  const { maxNeighbors, sizeScale, distance, connectionDistanceGain } = params;
 
   const datumTags = new Map<string, Set<string>>();
   const tagDatums = new Map<string, Set<string>>();
@@ -96,71 +96,41 @@ export function buildTagMeshLayout(
   const sizeFor = (count: number) => MIN_RADIUS + sizeScale * Math.sqrt(count);
   const countOf = (tag: string) => tagDatums.get(tag)!.size;
 
-  const placed = new Map<string, PlacedTag>();
-  const links: TagLayoutLink[] = [];
+  // ── Pass 1: build the BFS tree ────────────────────────────────────────
+  const tree = new Map<string, TreeNode>();
+  const orderQueue: string[] = [];
   const remaining = new Set(allTags.map((t) => t.tag));
-  const queue: string[] = [];
 
-  function seedRoot(tag: string, x: number, y: number) {
-    placed.set(tag, {
+  function addTreeNode(tag: string, parentTag: string | null) {
+    tree.set(tag, {
       tag,
       datumCount: countOf(tag),
-      x,
-      y,
-      radius: sizeFor(countOf(tag)),
-      neighbors: [],
-      parentAngle: null,
+      parentTag,
+      childTags: [],
     });
     remaining.delete(tag);
-    queue.push(tag);
+    orderQueue.push(tag);
+    if (parentTag) tree.get(parentTag)!.childTags.push(tag);
   }
 
-  function placeChild(
-    parent: PlacedTag,
-    childTag: string,
-    angle: number,
-  ) {
-    const x = parent.x + distance * Math.cos(angle);
-    const y = parent.y + distance * Math.sin(angle);
-    placed.set(childTag, {
-      tag: childTag,
-      datumCount: countOf(childTag),
-      x,
-      y,
-      radius: sizeFor(countOf(childTag)),
-      neighbors: [parent.tag],
-      parentAngle: (angle + Math.PI) % TAU,
-    });
-    parent.neighbors.push(childTag);
-    links.push({
-      source: parent.tag,
-      target: childTag,
-      weight: connBetween.get(pairKey(parent.tag, childTag)) ?? 0,
-    });
-    remaining.delete(childTag);
-    queue.push(childTag);
-  }
+  addTreeNode(allTags[0].tag, null);
 
-  seedRoot(allTags[0].tag, 0, 0);
-  let orphanIndex = 0;
-
-  while (remaining.size > 0 || queue.length > 0) {
-    if (queue.length === 0) {
+  let head = 0;
+  while (head < orderQueue.length || remaining.size > 0) {
+    if (head >= orderQueue.length) {
       let biggest: string | null = null;
       for (const t of remaining) {
         if (biggest === null || countOf(t) > countOf(biggest)) biggest = t;
       }
       if (!biggest) break;
-      orphanIndex++;
-      const a = orphanIndex * 2.399963;
-      const r = distance * 4 * Math.sqrt(orphanIndex);
-      seedRoot(biggest, r * Math.cos(a), r * Math.sin(a));
+      addTreeNode(biggest, null);
       continue;
     }
 
-    const parentTag = queue.shift()!;
-    const parent = placed.get(parentTag)!;
-    const capacity = maxNeighbors - parent.neighbors.length;
+    const parentTag = orderQueue[head++];
+    const parent = tree.get(parentTag)!;
+    const existing = (parent.parentTag ? 1 : 0) + parent.childTags.length;
+    const capacity = maxNeighbors - existing;
     if (capacity <= 0) continue;
 
     const candidates: Array<{ tag: string; conn: number }> = [];
@@ -171,27 +141,93 @@ export function buildTagMeshLayout(
     candidates.sort(
       (a, b) => b.conn - a.conn || countOf(b.tag) - countOf(a.tag),
     );
-    const children = candidates.slice(0, capacity);
-    if (children.length === 0) continue;
-
-    const N = children.length;
-    if (parent.parentAngle === null) {
-      const base = -Math.PI / 2;
-      const step = TAU / N;
-      for (let i = 0; i < N; i++) {
-        placeChild(parent, children[i].tag, base + i * step);
-      }
-    } else {
-      const step = TAU / (N + 1);
-      for (let i = 0; i < N; i++) {
-        const a = parent.parentAngle + (i + 1) * step;
-        placeChild(parent, children[i].tag, a);
-      }
+    for (const c of candidates.slice(0, capacity)) {
+      addTreeNode(c.tag, parent.tag);
     }
   }
 
-  const tags: TagLayoutNode[] = [...placed.values()].map(
-    ({ parentAngle: _p, ...rest }) => rest,
-  );
+  const neighborCount = (tag: string): number => {
+    const n = tree.get(tag)!;
+    return (n.parentTag ? 1 : 0) + n.childTags.length;
+  };
+
+  const edgeScale = (parentN: number, childN: number) =>
+    1 + connectionDistanceGain * Math.max(0, parentN + childN - 2);
+
+  // ── Pass 2: assign positions in BFS order ─────────────────────────────
+  const positions = new Map<string, Position>();
+  let orphanIndex = 0;
+
+  for (const tag of orderQueue) {
+    const node = tree.get(tag)!;
+
+    if (node.parentTag === null) {
+      if (positions.size === 0) {
+        positions.set(tag, { x: 0, y: 0, parentAngle: null });
+      } else {
+        orphanIndex++;
+        const a = orphanIndex * 2.399963;
+        const r = distance * 5 * Math.sqrt(orphanIndex);
+        positions.set(tag, {
+          x: r * Math.cos(a),
+          y: r * Math.sin(a),
+          parentAngle: null,
+        });
+      }
+      continue;
+    }
+
+    const parentNode = tree.get(node.parentTag)!;
+    const parentPos = positions.get(node.parentTag)!;
+    const siblings = parentNode.childTags;
+    const i = siblings.indexOf(tag);
+    const N = siblings.length;
+
+    let angle: number;
+    if (parentPos.parentAngle === null) {
+      const base = -Math.PI / 2;
+      const step = TAU / N;
+      angle = base + i * step;
+    } else {
+      const step = TAU / (N + 1);
+      angle = parentPos.parentAngle + (i + 1) * step;
+    }
+
+    const d = distance * edgeScale(neighborCount(parentNode.tag), neighborCount(tag));
+    positions.set(tag, {
+      x: parentPos.x + d * Math.cos(angle),
+      y: parentPos.y + d * Math.sin(angle),
+      parentAngle: (angle + Math.PI) % TAU,
+    });
+  }
+
+  // ── Emit tags and links ──────────────────────────────────────────────
+  const tags: TagLayoutNode[] = orderQueue.map((tag) => {
+    const node = tree.get(tag)!;
+    const pos = positions.get(tag)!;
+    const ns: string[] = [];
+    if (node.parentTag) ns.push(node.parentTag);
+    ns.push(...node.childTags);
+    return {
+      tag,
+      datumCount: node.datumCount,
+      x: pos.x,
+      y: pos.y,
+      radius: sizeFor(node.datumCount),
+      neighbors: ns,
+    };
+  });
+
+  const links: TagLayoutLink[] = [];
+  for (const node of tree.values()) {
+    if (node.parentTag) {
+      links.push({
+        source: node.parentTag,
+        target: node.tag,
+        weight: connBetween.get(pairKey(node.parentTag, node.tag)) ?? 0,
+      });
+    }
+  }
+
   return { tags, links };
 }

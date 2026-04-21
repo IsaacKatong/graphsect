@@ -76,6 +76,15 @@ export default function TagMeshControls({
         step={10}
         onChange={(v) => onChange({ ...params, distance: v })}
       />
+      <SliderRow
+        label="Distance scaling by connections"
+        value={params.connectionDistanceGain}
+        min={0}
+        max={1}
+        step={0.05}
+        format={(v) => v.toFixed(2)}
+        onChange={(v) => onChange({ ...params, connectionDistanceGain: v })}
+      />
     </div>
   );
 }
