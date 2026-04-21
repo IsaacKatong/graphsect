@@ -193,10 +193,14 @@ export function buildTagMeshLayout(
       angle = parentPos.parentAngle + (i + 1) * step;
     }
 
-    const d = distance * edgeScale(neighborCount(parentNode.tag), neighborCount(tag));
+    const gap =
+      distance * edgeScale(neighborCount(parentNode.tag), neighborCount(tag));
+    const parentRadius = sizeFor(parentNode.datumCount);
+    const childRadius = sizeFor(node.datumCount);
+    const centerToCenter = parentRadius + gap + childRadius;
     positions.set(tag, {
-      x: parentPos.x + d * Math.cos(angle),
-      y: parentPos.y + d * Math.sin(angle),
+      x: parentPos.x + centerToCenter * Math.cos(angle),
+      y: parentPos.y + centerToCenter * Math.sin(angle),
       parentAngle: (angle + Math.PI) % TAU,
     });
   }
