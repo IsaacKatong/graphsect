@@ -27,8 +27,17 @@ const pickK = (arr, k) => {
 };
 
 const N = 100;
-const DATUM_TAGS = Array.from({ length: 10 }, (_, i) => `datumTag${i + 1}`);
-const EDGE_TAGS = Array.from({ length: 10 }, (_, i) => `edgeTag${i + 1}`);
+const MAIN_DATUM_TAGS = Array.from(
+  { length: 10 },
+  (_, i) => `mainDatumTag${i}`,
+);
+const SUB_DATUM_TAGS = Object.fromEntries(
+  MAIN_DATUM_TAGS.map((main, i) => [
+    main,
+    Array.from({ length: 10 }, (_, j) => `subDatumTag${i}-${j}`),
+  ]),
+);
+const EDGE_TAGS = Array.from({ length: 10 }, (_, i) => `edgeTag${i}`);
 const DIMENSIONS = [
   "importance",
   "complexity",
@@ -64,7 +73,12 @@ const datumDimensions = [];
 const tagsByDatum = new Map();
 for (const d of datums) {
   const k = randInt(1, 5);
-  const tags = pickK(DATUM_TAGS, k);
+  const mainTags = pickK(MAIN_DATUM_TAGS, k);
+  const tags = [...mainTags];
+  for (const main of mainTags) {
+    const subCount = randInt(2, 5);
+    tags.push(...pickK(SUB_DATUM_TAGS[main], subCount));
+  }
   tagsByDatum.set(d.id, tags);
   for (const tag of tags) {
     datumTags.push({ name: tag, datumID: d.id });
