@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
-import ForceGraph3DView from "./graph-view/ForceGraph3DView";
-import GroupedGraphView from "./graph-view/GroupedGraphView";
+import { useState, useMemo } from "react";
+import TagMesh2DView from "./tag-mesh/TagMesh2DView";
+import TagMeshControls from "./tag-mesh/TagMeshControls";
 import NodeDetailPanel from "./graph-view/NodeDetailPanel";
 import FilterPanel from "./filter-panel/FilterPanel";
 import PlotView from "./plotting/PlotView";
 import DimensionSelector from "./plotting/DimensionSelector";
-import GroupedViewControls from "./graph-view/GroupedViewControls";
 import { useDimensionSelection } from "./plotting/useDimensionSelection";
 import {
   transformGraph,
@@ -18,6 +17,7 @@ import {
 } from "./filtering/types";
 import { useFilterState } from "./filtering/useFilterState";
 import { applyFilters } from "./filtering/applyFilters";
+import { TagMeshParams } from "./tag-mesh/buildTagMeshLayout";
 
 type GraphSectProps = {
   graph: ExternalGraph;
@@ -27,6 +27,12 @@ type GraphSectProps = {
   hideDefaultDimensionSelector?: boolean;
   onDimensionsChange?: (dimensions: string[]) => void;
   selectedDimensions?: string[];
+};
+
+const DEFAULT_PARAMS: TagMeshParams = {
+  maxNeighbors: 6,
+  sizeScale: 10,
+  distance: 220,
 };
 
 function GraphSect({
@@ -40,16 +46,9 @@ function GraphSect({
 }: GraphSectProps) {
   const [selectedNode, setSelectedNode] = useState<ForceGraphNode | null>(null);
   const [showEdges, setShowEdges] = useState(false);
-  const [groupedMode, setGroupedMode] = useState(false);
-  const [groupedEverShown, setGroupedEverShown] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"plot" | "grouped" | null>(
-    null,
-  );
-  const [resetToken, setResetToken] = useState(0);
+  const [openDropdown, setOpenDropdown] = useState<"plot" | null>(null);
+  const [meshParams, setMeshParams] = useState<TagMeshParams>(DEFAULT_PARAMS);
 
-  useEffect(() => {
-    if (groupedMode) setGroupedEverShown(true);
-  }, [groupedMode]);
   const { filterState, setFilter, clearAllFilters } = useFilterState();
   const internal = useDimensionSelection();
 
@@ -96,26 +95,11 @@ function GraphSect({
         style={{
           width: "100%",
           height: "100%",
-          display: showPlot || groupedMode ? "none" : "block",
+          display: showPlot ? "none" : "block",
         }}
       >
-        <ForceGraph3DView data={graphData} onNodeClick={setSelectedNode} />
+        <TagMesh2DView data={graphData} params={meshParams} />
       </div>
-      {groupedEverShown && (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: showPlot || !groupedMode ? "none" : "block",
-          }}
-        >
-          <GroupedGraphView
-            data={graphData}
-            onLeafClick={setSelectedNode}
-            resetToken={resetToken}
-          />
-        </div>
-      )}
       {showPlot && (
         <PlotView
           graph={filteredGraph}
@@ -140,14 +124,6 @@ function GraphSect({
             <div />
           )}
           <div style={rightToolbarStyle}>
-            <GroupedViewControls
-              enabled={groupedMode}
-              onToggle={() => setGroupedMode((v) => !v)}
-              onReset={() => setResetToken((n) => n + 1)}
-              disabled={showPlot}
-              open={openDropdown === "grouped"}
-              onOpenChange={(o) => setOpenDropdown(o ? "grouped" : null)}
-            />
             {showDimensionSelector && (
               <DimensionSelector
                 graph={graph}
@@ -161,6 +137,9 @@ function GraphSect({
             )}
           </div>
         </div>
+      )}
+      {!showPlot && (
+        <TagMeshControls params={meshParams} onChange={setMeshParams} />
       )}
       <NodeDetailPanel
         node={selectedNode}

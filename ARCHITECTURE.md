@@ -25,10 +25,10 @@ ExternalGraph (source)
   ForceGraphData { nodes, links }
        │
        ▼
-  ForceGraph3DView (3d-force-graph)
+  TagMesh2DView (SVG, greedy tag layout)
        │
        ▼
-  User clicks node
+  User clicks node (via PlotView)
        │
        ▼
   NodeDetailPanel
@@ -63,15 +63,15 @@ Key files:
 
 ### 3. Transform — transformGraph()
 
-`src/external-graph/transformGraph.ts` converts the (filtered) ExternalGraph into the format expected by 3d-force-graph:
+`src/external-graph/transformGraph.ts` converts the (filtered) ExternalGraph into a normalized `{ nodes, links }` shape:
 
 - Each **datum** becomes a **node** enriched with its resolved tags and dimensions.
 - Each **edge** becomes a **link** enriched with its resolved edge tags.
 - Tags and dimensions are indexed by datum/edge ID for O(1) lookup during transformation.
 
-### 4. Render — ForceGraph3DView
+### 4. Render — TagMesh2DView
 
-`src/graph-view/ForceGraph3DView.tsx` passes the transformed data to the 3d-force-graph library, which renders an interactive 3D force-directed graph using WebGL (three.js). Node size is driven by the `importance` dimension when present.
+`src/tag-mesh/TagMesh2DView.tsx` renders a 2D SVG mesh of tags. The layout in `buildTagMeshLayout.ts` is a greedy heuristic: the tag with the most datums is placed first, then each remaining tag is attached to the already-placed tag it shares the most datum-to-datum edge connections with, using a free angular slot around that parent. Each tag is a circle (radius scaled by datum count) and each tag-to-tag connection is a line. The three tunables — max neighbors per tag, size scale, and distance between tags — are exposed as sliders in `TagMeshControls.tsx`.
 
 ### 5. Filter UI — FilterPanel
 

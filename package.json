@@ -40,15 +40,9 @@
     "react-dom": "^18 || ^19"
   },
   "dependencies": {
-    "@types/d3-hierarchy": "^3.1.7",
-    "@types/three": "^0.184.0",
-    "3d-force-graph": "^1.80.0",
-    "d3-force-3d": "^3.0.6",
-    "d3-hierarchy": "^3.1.2",
     "plotly.js-dist-min": "^3.5.0",
     "react-markdown": "^10.1.0",
-    "react-plotly.js": "^2.6.0",
-    "three": "^0.184.0"
+    "react-plotly.js": "^2.6.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

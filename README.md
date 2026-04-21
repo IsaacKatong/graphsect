@@ -8,7 +8,7 @@ graphSect makes the dissecting, displaying, and digesting of structured, connect
 
 ## Features
 
-- **3D Graph View** — The default visualization renders graphs in 3D, providing an immersive way to explore nodes and their connections.
+- **Tag Mesh View** — The default visualization lays out datum tags as a 2D mesh using a greedy tag-connection heuristic, with tunable neighbor count, tag size, and distance.
 - **Node Inspection** — Select any node in the graph to view all of its associated metadata and details.
 - **Filtering** — Apply filters to focus on specific subsets of nodes, reducing visual clutter and highlighting what matters.
 - **Alternative Views** — Switch to value-based graph views that leverage dimensions associated with nodes, enabling different analytical perspectives on the same data.
