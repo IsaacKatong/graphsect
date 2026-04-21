@@ -33,7 +33,7 @@ const DEFAULT_PARAMS: TagMeshParams = {
   maxNeighbors: 6,
   sizeScale: 10,
   distance: 220,
-  connectionDistanceGain: 0.2,
+  connectionDistanceGain: 1,
 };
 
 function GraphSect({

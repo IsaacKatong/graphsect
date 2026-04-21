@@ -80,9 +80,9 @@ export default function TagMeshControls({
         label="Distance scaling by connections"
         value={params.connectionDistanceGain}
         min={0}
-        max={1}
-        step={0.05}
-        format={(v) => v.toFixed(2)}
+        max={1000}
+        step={1}
+        format={(v) => v.toFixed(0)}
         onChange={(v) => onChange({ ...params, connectionDistanceGain: v })}
       />
     </div>
