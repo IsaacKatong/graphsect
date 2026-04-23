@@ -58,29 +58,90 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
     return { minX, minY, maxX, maxY };
   }, [layout]);
 
-  const { viewBox, linkMap } = useMemo(() => {
-    const w = bounds.maxX - bounds.minX;
-    const h = bounds.maxY - bounds.minY;
-    const vb = `${bounds.minX - PADDING} ${bounds.minY - PADDING} ${w + PADDING * 2} ${h + PADDING * 2}`;
+  // Base (unpanned) viewBox rectangle in world coordinates.
+  const baseView = useMemo(() => {
+    const w = bounds.maxX - bounds.minX + PADDING * 2;
+    const h = bounds.maxY - bounds.minY + PADDING * 2;
+    return { x: bounds.minX - PADDING, y: bounds.minY - PADDING, w, h };
+  }, [bounds]);
+
+  const linkMap = useMemo(() => {
     const m = new Map<string, { x: number; y: number }>();
     for (const t of layout.tags) m.set(t.tag, { x: t.x, y: t.y });
-    return { viewBox: vb, linkMap: m };
-  }, [bounds, layout.tags]);
+    return m;
+  }, [layout.tags]);
+
+  // Pan is in world units; shifts the viewBox origin so the scene follows
+  // the cursor as the user drags.
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  // Under preserveAspectRatio="xMidYMid meet" the SVG is uniformly scaled
+  // to fit inside its element, so 1 screen pixel covers 1/scale world units.
+  const scale = useMemo(() => {
+    if (size.w <= 0 || size.h <= 0 || baseView.w <= 0 || baseView.h <= 0) {
+      return 1;
+    }
+    return Math.min(size.w / baseView.w, size.h / baseView.h);
+  }, [size, baseView]);
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return; // left click only
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const basePan = pan;
+      const s = scale > 0 ? scale : 1;
+      setIsDragging(true);
+
+      const onMove = (ev: MouseEvent) => {
+        const dx = (ev.clientX - startX) / s;
+        const dy = (ev.clientY - startY) / s;
+        setPan({ x: basePan.x + dx, y: basePan.y + dy });
+      };
+      const onUp = () => {
+        setIsDragging(false);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [pan, scale],
+  );
+
+  const viewBox = useMemo(() => {
+    const x = baseView.x - pan.x;
+    const y = baseView.y - pan.y;
+    return `${x} ${y} ${baseView.w} ${baseView.h}`;
+  }, [baseView, pan]);
 
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const onMouseEnter = useCallback((tag: string) => setHovered(tag), []);
-  const onMouseLeave = useCallback(() => setHovered(null), []);
+  const onNodeEnter = useCallback(
+    (tag: string) => {
+      // Suppress hover while dragging so the highlight doesn't flicker on
+      // every node the cursor passes over mid-pan.
+      if (!isDragging) setHovered(tag);
+    },
+    [isDragging],
+  );
+  const onNodeLeave = useCallback(() => setHovered(null), []);
 
   return (
     <div
       ref={containerRef}
+      onMouseDown={onMouseDown}
       style={{
         width: "100%",
         height: "100%",
         overflow: "hidden",
         position: "relative",
         backgroundColor: "#0f172a",
+        cursor: isDragging ? "grabbing" : "grab",
+        userSelect: "none",
       }}
     >
       <svg
@@ -118,9 +179,8 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
             return (
               <g
                 key={t.tag}
-                onMouseEnter={() => onMouseEnter(t.tag)}
-                onMouseLeave={onMouseLeave}
-                style={{ cursor: "pointer" }}
+                onMouseEnter={() => onNodeEnter(t.tag)}
+                onMouseLeave={onNodeLeave}
               >
                 <circle
                   cx={t.x}
