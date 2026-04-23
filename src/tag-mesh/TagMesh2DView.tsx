@@ -12,18 +12,14 @@ type TagMesh2DViewProps = {
 
 const PADDING = 40;
 
-function hashString(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
+// Root (orphan main) → red, non-root main → green, sub → yellow.
+const COLOR_ROOT = "#ef4444";
+const COLOR_MAIN = "#22c55e";
+const COLOR_SUB = "#eab308";
 
-function colorForTag(tag: string): string {
-  const hue = hashString(tag) % 360;
-  return `hsl(${hue}, 55%, 55%)`;
+function colorForNode(role: "main" | "sub", parent: string | null): string {
+  if (role === "sub") return COLOR_SUB;
+  return parent === null ? COLOR_ROOT : COLOR_MAIN;
 }
 
 export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
@@ -130,7 +126,7 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
                   cx={t.x}
                   cy={t.y}
                   r={t.radius}
-                  fill={colorForTag(t.tag)}
+                  fill={colorForNode(t.role, t.parent)}
                   fillOpacity={isHover ? hoverOpacity : baseOpacity}
                   stroke={
                     isHover ? "#f8fafc" : isSub ? "#334155" : "#1e293b"
