@@ -321,17 +321,30 @@ export function buildTagMeshLayout(
     }
   }
 
-  // ── Phase 3a: angular slot assignment (BFS down from each root) ──────
+  // ── Phase 3a: trueSize per main (independent of angles) ──────────────
+  // Sub radial distance from main center is initialized to mainR + D + subR,
+  // which may grow later on sibling collision. We use the initial value here
+  // so the placement pass doesn't depend on angle-sensitive sub offsets.
+  for (const n of tree.values()) {
+    if (n.role !== "main") continue;
+    const mainR = sizeFor(n.score);
+    let reach = mainR;
+    for (const subTag of n.subChildren) {
+      const sR = sizeFor(tree.get(subTag)!.score);
+      const r = mainR + D + 2 * sR; // sub outer edge from main center
+      if (r > reach) reach = r;
+    }
+    n.trueSize = reach + D + A;
+  }
+
+  // ── Phase 3b: per-main angular layout (called as each main is placed) ─
   function layoutAngles(m: TreeNode): void {
     const slotStep = X > 0 ? TAU / X : 0;
     const hasParent = m.parent !== null;
-    // Slot 0 is the parent direction for non-roots; for roots we start at -π/2
-    // so the first main child sits at the top.
     const base = hasParent ? m.parentRefAngle : -Math.PI / 2;
     const slots: number[] = [];
     for (let i = 0; i < X; i++) slots.push(base + i * slotStep);
 
-    // Main child slots: all slots except slot 0 for non-roots.
     m.mainSlotAngles = hasParent ? slots.slice(1) : slots.slice();
     for (let i = 0; i < m.mainChildren.length; i++) {
       const child = tree.get(m.mainChildren[i])!;
@@ -340,7 +353,6 @@ export function buildTagMeshLayout(
       child.parentRefAngle = a + Math.PI;
     }
 
-    // Sub slots: k subs per gap between consecutive main slots.
     const subAngles: number[] = [];
     for (let i = 0; i < X; i++) {
       const start = slots[i];
@@ -360,17 +372,153 @@ export function buildTagMeshLayout(
     }
   }
 
-  for (const root of orphanMains) {
-    const queue: string[] = [root];
+  // ── Phase 3c: place mains with rotation-on-line-collision ─────────────
+  // Distance from a point to a line segment (clamped to the segment endpoints).
+  function distPointToSegment(
+    ox: number,
+    oy: number,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ): number {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    if (len2 <= EPS) return Math.hypot(ox - ax, oy - ay);
+    let t = ((ox - ax) * dx + (oy - ay) * dy) / len2;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    return Math.hypot(ox - (ax + t * dx), oy - (ay + t * dy));
+  }
+
+  type TrialResult = {
+    angle: number;
+    dist: number;
+    x: number;
+    y: number;
+    circleOk: boolean;
+    lineOk: boolean;
+    minLineGap: number;
+  };
+
+  function trial(
+    n: TreeNode,
+    parent: TreeNode,
+    angle: number,
+    placed: string[],
+  ): TrialResult {
+    let dist = parent.trueSize + n.trueSize;
+    let x = parent.x + dist * Math.cos(angle);
+    let y = parent.y + dist * Math.sin(angle);
+
+    // Push outward on main-circle collision.
+    let bumped = true;
+    let safety = 0;
+    while (bumped && safety < 64) {
+      safety++;
+      bumped = false;
+      for (const otherTag of placed) {
+        if (otherTag === parent.tag) continue;
+        const o = tree.get(otherTag)!;
+        const dd = Math.hypot(x - o.x, y - o.y);
+        const need = o.trueSize + n.trueSize;
+        if (dd < need - EPS) {
+          dist += need - dd + EPS;
+          x = parent.x + dist * Math.cos(angle);
+          y = parent.y + dist * Math.sin(angle);
+          bumped = true;
+        }
+      }
+    }
+
+    // Check whether the parent→child line passes within another main's
+    // footprint. This catches the geometric case where the child's slot
+    // points toward an uncle.
+    let minLineGap = Infinity;
+    let lineOk = true;
+    for (const otherTag of placed) {
+      if (otherTag === parent.tag) continue;
+      const o = tree.get(otherTag)!;
+      const d = distPointToSegment(o.x, o.y, parent.x, parent.y, x, y);
+      const gap = d - o.trueSize;
+      if (gap < minLineGap) minLineGap = gap;
+      if (gap < -EPS) lineOk = false;
+    }
+
+    return { angle, dist, x, y, circleOk: true, lineOk, minLineGap };
+  }
+
+  function placeMain(n: TreeNode, parent: TreeNode, placed: string[]): void {
+    const baseAngle = n.angleFromParent;
+    const slotStep = X > 0 ? TAU / X : TAU;
+    // Stay within our slot wedge so we don't stray into a sibling's space.
+    const maxOffset = slotStep * 0.45;
+
+    // Try angular offsets: start at the slot center, then sweep symmetrically.
+    const offsets: number[] = [0];
+    const STEPS = 10;
+    for (let i = 1; i <= STEPS; i++) {
+      const frac = i / STEPS;
+      offsets.push(+maxOffset * frac);
+      offsets.push(-maxOffset * frac);
+    }
+
+    let best: TrialResult | null = null;
+    for (const off of offsets) {
+      const r = trial(n, parent, baseAngle + off, placed);
+      if (r.lineOk) {
+        best = r;
+        break;
+      }
+      // Otherwise remember the attempt with the largest min gap as a fallback.
+      if (best === null || r.minLineGap > best.minLineGap) best = r;
+    }
+
+    if (best === null) {
+      best = trial(n, parent, baseAngle, placed);
+    }
+
+    n.angleFromParent = best.angle;
+    n.parentRefAngle = best.angle + Math.PI;
+    n.x = best.x;
+    n.y = best.y;
+  }
+
+  const placedMainsGlobal: string[] = [];
+  for (let ri = 0; ri < orphanMains.length; ri++) {
+    const rootTag = orphanMains[ri];
+    const rootNode = tree.get(rootTag)!;
+    if (ri === 0) {
+      rootNode.x = 0;
+      rootNode.y = 0;
+    } else {
+      const a = ri * 2.399963;
+      const r = (rootNode.trueSize + D + A) * 2 * Math.sqrt(ri);
+      rootNode.x = r * Math.cos(a);
+      rootNode.y = r * Math.sin(a);
+    }
+    layoutAngles(rootNode);
+    placedMainsGlobal.push(rootTag);
+
+    const queue: string[] = [rootTag];
     while (queue.length) {
-      const tag = queue.shift()!;
-      const n = tree.get(tag)!;
-      layoutAngles(n);
-      for (const c of n.mainChildren) queue.push(c);
+      const parentTag = queue.shift()!;
+      const parentNode = tree.get(parentTag)!;
+      for (const childTag of parentNode.mainChildren) {
+        const child = tree.get(childTag)!;
+        placeMain(child, parentNode, placedMainsGlobal);
+        // After the child's angle is settled, lay out its own children's
+        // angles. That way any rotation applied here propagates to the
+        // grandchildren naturally.
+        layoutAngles(child);
+        placedMainsGlobal.push(childTag);
+        queue.push(childTag);
+      }
     }
   }
 
-  // ── Phase 3b: sub radial offsets, reverse placement order ─────────────
+  // ── Phase 3d: sub radial offsets (after main angles are final) ───────
   const processedSubs = new Set<string>();
   for (let i = placedSubs.length - 1; i >= 0; i--) {
     const subTag = placedSubs[i];
@@ -392,81 +540,13 @@ export function buildTagMeshLayout(
       const cosD = Math.cos(delta);
       const sinD = Math.sin(delta);
       const discr = needed * needed - d2 * d2 * sinD * sinD;
-      if (discr < 0) continue; // sibling is angularly out of reach at any distance
+      if (discr < 0) continue;
       const forbiddenHigh = d2 * cosD + Math.sqrt(discr);
       if (dist < forbiddenHigh + EPS) dist = forbiddenHigh + EPS;
     }
 
     parent.subOffsets.set(subTag, { angle: sub.angleFromParent, dist });
     processedSubs.add(subTag);
-  }
-
-  // ── Phase 3c: compute trueSize for each main ──────────────────────────
-  for (const n of tree.values()) {
-    if (n.role !== "main") continue;
-    const mainR = sizeFor(n.score);
-    let reach = mainR;
-    for (const subTag of n.subChildren) {
-      const off = n.subOffsets.get(subTag)!;
-      const sR = sizeFor(tree.get(subTag)!.score);
-      const r = off.dist + sR;
-      if (r > reach) reach = r;
-    }
-    n.trueSize = reach + D + A;
-  }
-
-  // ── Phase 3d: place mains in the global frame (forward BFS) ───────────
-  const placedMainsGlobal: string[] = [];
-  for (let ri = 0; ri < orphanMains.length; ri++) {
-    const rootTag = orphanMains[ri];
-    const rootNode = tree.get(rootTag)!;
-    if (ri === 0) {
-      rootNode.x = 0;
-      rootNode.y = 0;
-    } else {
-      const a = ri * 2.399963;
-      const r = (rootNode.trueSize + D + A) * 2 * Math.sqrt(ri);
-      rootNode.x = r * Math.cos(a);
-      rootNode.y = r * Math.sin(a);
-    }
-
-    const queue: string[] = [rootTag];
-    while (queue.length) {
-      const tag = queue.shift()!;
-      const n = tree.get(tag)!;
-      if (n.parent !== null) {
-        const parent = tree.get(n.parent)!;
-        const ang = n.angleFromParent;
-        let dist = parent.trueSize + n.trueSize;
-        let x = parent.x + dist * Math.cos(ang);
-        let y = parent.y + dist * Math.sin(ang);
-
-        let bumped = true;
-        let safety = 0;
-        while (bumped && safety < 64) {
-          safety++;
-          bumped = false;
-          for (const otherTag of placedMainsGlobal) {
-            if (otherTag === n.parent) continue;
-            const o = tree.get(otherTag)!;
-            const dx = x - o.x;
-            const dy = y - o.y;
-            const dd = Math.sqrt(dx * dx + dy * dy);
-            const need = o.trueSize + n.trueSize;
-            if (dd < need - EPS) {
-              dist += need - dd + EPS;
-              x = parent.x + dist * Math.cos(ang);
-              y = parent.y + dist * Math.sin(ang);
-              bumped = true;
-            }
-          }
-        }
-        n.x = x;
-        n.y = y;
-      }
-      placedMainsGlobal.push(tag);
-      for (const c of n.mainChildren) queue.push(c);
-    }
   }
 
   // ── Phase 3e: translate sub offsets to global positions ──────────────
