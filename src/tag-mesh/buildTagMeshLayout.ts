@@ -371,6 +371,10 @@ export function buildTagMeshLayout(
   }
 
   // ── Phase 3b: sub radial offsets, reverse placement order ─────────────
+  // Find the *minimum* dist ≥ parentR + D + subR that sits outside every
+  // processed sibling's forbidden interval on the radial axis. Each sibling
+  // contributes [forbiddenLow, forbiddenHigh] = d2·cos(Δθ) ∓ √(needed² −
+  // d2²·sin²(Δθ)); discriminant < 0 means angularly out of reach.
   const processedSubs = new Set<string>();
   for (let i = placedSubs.length - 1; i >= 0; i--) {
     const subTag = placedSubs[i];
@@ -378,8 +382,9 @@ export function buildTagMeshLayout(
     const parent = tree.get(sub.parent!)!;
     const parentR = sizeFor(parent.score);
     const subR = sizeFor(sub.score);
-    let dist = parentR + D + subR;
+    const floor = parentR + D + subR;
 
+    const forbidden: Array<{ lo: number; hi: number }> = [];
     for (const siblingTag of parent.subChildren) {
       if (siblingTag === subTag) continue;
       if (!processedSubs.has(siblingTag)) continue;
@@ -392,9 +397,22 @@ export function buildTagMeshLayout(
       const cosD = Math.cos(delta);
       const sinD = Math.sin(delta);
       const discr = needed * needed - d2 * d2 * sinD * sinD;
-      if (discr < 0) continue; // sibling is angularly out of reach at any distance
-      const forbiddenHigh = d2 * cosD + Math.sqrt(discr);
-      if (dist < forbiddenHigh + EPS) dist = forbiddenHigh + EPS;
+      if (discr < 0) continue; // sibling is angularly out of reach at any dist
+      const sqrtDiscr = Math.sqrt(discr);
+      const hi = d2 * cosD + sqrtDiscr;
+      if (hi <= 0) continue; // forbidden region entirely behind the parent
+      const lo = Math.max(0, d2 * cosD - sqrtDiscr);
+      forbidden.push({ lo, hi });
+    }
+
+    // Sort by lower bound and walk once: stay at floor if below the next
+    // interval, jump past hi if inside, skip if already past.
+    forbidden.sort((a, b) => a.lo - b.lo);
+    let dist = floor;
+    for (const { lo, hi } of forbidden) {
+      if (dist < lo - EPS) continue; // below this interval → below all later ones too
+      if (dist > hi + EPS) continue; // already past
+      dist = hi + EPS;
     }
 
     parent.subOffsets.set(subTag, { angle: sub.angleFromParent, dist });
