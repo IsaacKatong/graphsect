@@ -1,4 +1,11 @@
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  type CSSProperties,
+} from "react";
 import { ForceGraphData } from "../external-graph/transformGraph";
 import {
   buildTagMeshLayout,
@@ -72,17 +79,29 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
   }, [layout.tags]);
 
   // Pan is in world units; shifts the viewBox origin so the scene follows
-  // the cursor as the user drags.
+  // the cursor as the user drags. Zoom scales the viewBox around its center.
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 20;
+
+  // Effective viewBox (zoomed + panned) in world coordinates. Zooming shrinks
+  // the viewBox around baseView's center; pan shifts it.
+  const view = useMemo(() => {
+    const w = baseView.w / zoom;
+    const h = baseView.h / zoom;
+    const x = baseView.x + (baseView.w - w) / 2 - pan.x;
+    const y = baseView.y + (baseView.h - h) / 2 - pan.y;
+    return { x, y, w, h };
+  }, [baseView, zoom, pan]);
 
   // Under preserveAspectRatio="xMidYMid meet" the SVG is uniformly scaled
-  // to fit inside its element, so 1 screen pixel covers 1/scale world units.
+  // to fit the viewBox inside its element, so 1 screen pixel covers 1/scale
+  // world units. Grows with zoom.
   const scale = useMemo(() => {
-    if (size.w <= 0 || size.h <= 0 || baseView.w <= 0 || baseView.h <= 0) {
-      return 1;
-    }
-    return Math.min(size.w / baseView.w, size.h / baseView.h);
-  }, [size, baseView]);
+    if (size.w <= 0 || size.h <= 0 || view.w <= 0 || view.h <= 0) return 1;
+    return Math.min(size.w / view.w, size.h / view.h);
+  }, [size, view]);
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -112,11 +131,90 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
     [pan, scale],
   );
 
-  const viewBox = useMemo(() => {
-    const x = baseView.x - pan.x;
-    const y = baseView.y - pan.y;
-    return `${x} ${y} ${baseView.w} ${baseView.h}`;
-  }, [baseView, pan]);
+  const viewBox = useMemo(
+    () => `${view.x} ${view.y} ${view.w} ${view.h}`,
+    [view],
+  );
+
+  // Wheel zoom with cursor as the pivot point. React's onWheel is passive by
+  // default, so we attach a native listener with { passive: false } to be
+  // able to preventDefault. The handler reads the latest state via refs so
+  // we don't rebind on every pan/zoom change.
+  const viewRef = useRef(view);
+  const sizeRef = useRef(size);
+  const baseViewRef = useRef(baseView);
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+  useEffect(() => {
+    sizeRef.current = size;
+  }, [size]);
+  useEffect(() => {
+    baseViewRef.current = baseView;
+  }, [baseView]);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+
+      const v = viewRef.current;
+      const sz = sizeRef.current;
+      const bv = baseViewRef.current;
+      const z = zoomRef.current;
+
+      if (sz.w <= 0 || sz.h <= 0 || v.w <= 0 || v.h <= 0) return;
+
+      // World point under the cursor, accounting for xMidYMid-meet padding.
+      const s = Math.min(sz.w / v.w, sz.h / v.h);
+      const actualW = v.w * s;
+      const actualH = v.h * s;
+      const mx = (sz.w - actualW) / 2;
+      const my = (sz.h - actualH) / 2;
+      const worldCx = v.x + (cx - mx) / s;
+      const worldCy = v.y + (cy - my) / s;
+
+      // Exponential zoom so each notch feels consistent regardless of level.
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor));
+      if (newZoom === z) return;
+
+      // Solve for new pan such that (worldCx, worldCy) stays under the cursor.
+      const vwNew = bv.w / newZoom;
+      const vhNew = bv.h / newZoom;
+      const sNew = Math.min(sz.w / vwNew, sz.h / vhNew);
+      const mxNew = (sz.w - vwNew * sNew) / 2;
+      const myNew = (sz.h - vhNew * sNew) / 2;
+      const vxNew = worldCx - (cx - mxNew) / sNew;
+      const vyNew = worldCy - (cy - myNew) / sNew;
+      const panX = bv.x + (bv.w - vwNew) / 2 - vxNew;
+      const panY = bv.y + (bv.h - vhNew) / 2 - vyNew;
+
+      setZoom(newZoom);
+      setPan({ x: panX, y: panY });
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -129,6 +227,10 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
     [isDragging],
   );
   const onNodeLeave = useCallback(() => setHovered(null), []);
+
+  const stepZoom = useCallback((factor: number) => {
+    setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
+  }, []);
 
   return (
     <div
@@ -225,6 +327,60 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
           })}
         </g>
       </svg>
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          background: "rgba(15, 23, 42, 0.85)",
+          border: "1px solid #334155",
+          borderRadius: 6,
+          padding: 4,
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => stepZoom(1.25)}
+          title="Zoom in"
+          style={zoomBtnStyle}
+        >
+          +
+        </button>
+        <button
+          onClick={() => stepZoom(1 / 1.25)}
+          title="Zoom out"
+          style={zoomBtnStyle}
+        >
+          −
+        </button>
+        <button
+          onClick={resetView}
+          title="Reset view"
+          style={{ ...zoomBtnStyle, fontSize: 10 }}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+      </div>
     </div>
   );
 }
+
+const zoomBtnStyle: CSSProperties = {
+  width: 28,
+  height: 24,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#1e293b",
+  color: "#e2e8f0",
+  border: "1px solid #475569",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontFamily: "system-ui, sans-serif",
+  fontSize: 14,
+  lineHeight: 1,
+  padding: 0,
+};
