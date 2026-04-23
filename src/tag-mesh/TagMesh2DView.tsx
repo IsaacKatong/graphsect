@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   type CSSProperties,
+  type ReactElement,
 } from "react";
 import { ForceGraphData } from "../external-graph/transformGraph";
 import {
@@ -254,23 +255,36 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
         style={{ display: "block" }}
       >
         <g>
-          {layout.links.map((l, i) => {
-            const a = linkMap.get(l.source);
-            const b = linkMap.get(l.target);
-            if (!a || !b) return null;
-            return (
-              <line
-                key={`link-${i}`}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="#64748b"
-                strokeWidth={1.5}
-                strokeOpacity={0.7}
-              />
-            );
-          })}
+          {/* Render non-incident edges first, then incident ones on top so
+              the highlight isn't overdrawn by later non-incident lines. */}
+          {(() => {
+            const base: ReactElement[] = [];
+            const hi: ReactElement[] = [];
+            layout.links.forEach((l, i) => {
+              const a = linkMap.get(l.source);
+              const b = linkMap.get(l.target);
+              if (!a || !b) return;
+              const incident =
+                hovered !== null &&
+                (l.source === hovered || l.target === hovered);
+              const el = (
+                <line
+                  key={`link-${i}`}
+                  x1={a.x}
+                  y1={a.y}
+                  x2={b.x}
+                  y2={b.y}
+                  stroke={incident ? "#f8fafc" : "#64748b"}
+                  strokeWidth={incident ? 3 : 1.5}
+                  strokeOpacity={
+                    hovered === null ? 0.7 : incident ? 0.95 : 0.2
+                  }
+                />
+              );
+              (incident ? hi : base).push(el);
+            });
+            return [...base, ...hi];
+          })()}
         </g>
         <g>
           {layout.tags.map((t) => {
@@ -330,8 +344,8 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
       <div
         style={{
           position: "absolute",
-          top: 8,
-          right: 8,
+          bottom: 12,
+          left: 12,
           display: "flex",
           flexDirection: "column",
           gap: 4,
