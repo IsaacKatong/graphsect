@@ -116,6 +116,9 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
         <g>
           {layout.tags.map((t) => {
             const isHover = hovered === t.tag;
+            const isSub = t.role === "sub";
+            const baseOpacity = isSub ? 0.45 : 0.75;
+            const hoverOpacity = isSub ? 0.75 : 0.95;
             return (
               <g
                 key={t.tag}
@@ -128,9 +131,12 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
                   cy={t.y}
                   r={t.radius}
                   fill={colorForTag(t.tag)}
-                  fillOpacity={isHover ? 0.95 : 0.75}
-                  stroke={isHover ? "#f8fafc" : "#1e293b"}
+                  fillOpacity={isHover ? hoverOpacity : baseOpacity}
+                  stroke={
+                    isHover ? "#f8fafc" : isSub ? "#334155" : "#1e293b"
+                  }
                   strokeWidth={isHover ? 2 : 1}
+                  strokeDasharray={isSub ? "3 2" : undefined}
                 />
                 <text
                   x={t.x}

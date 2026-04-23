@@ -80,16 +80,38 @@ export default function TagMeshControls({
   params,
   onChange,
 }: TagMeshControlsProps) {
+  const X = params.mainNeighbors;
+
+  function snapY(y: number, xAxis: number) {
+    if (xAxis <= 0) return 0;
+    return xAxis * Math.max(0, Math.round(y / xAxis));
+  }
+
   return (
     <div style={panelStyle}>
       <div style={titleStyle}>Tag Mesh</div>
       <SliderRow
-        label="Tags around one tag"
-        value={params.maxNeighbors}
+        label="Main tags around a tag"
+        value={params.mainNeighbors}
         min={2}
-        max={12}
+        max={10}
         step={1}
-        onChange={(v) => onChange({ ...params, maxNeighbors: v })}
+        onChange={(v) => {
+          const newX = Math.max(2, Math.round(v));
+          onChange({
+            ...params,
+            mainNeighbors: newX,
+            subNeighbors: snapY(params.subNeighbors, newX),
+          });
+        }}
+      />
+      <SliderRow
+        label="Sub tags per main"
+        value={params.subNeighbors}
+        min={0}
+        max={40}
+        step={Math.max(1, X)}
+        onChange={(v) => onChange({ ...params, subNeighbors: snapY(v, X) })}
       />
       <SliderRow
         label="Tag size scale"
@@ -101,7 +123,7 @@ export default function TagMeshControls({
         onChange={(v) => onChange({ ...params, sizeScale: v })}
       />
       <SliderRow
-        label="Distance between tags"
+        label="Min distance (D)"
         value={params.distance}
         min={0}
         max={600}
@@ -109,13 +131,13 @@ export default function TagMeshControls({
         onChange={(v) => onChange({ ...params, distance: v })}
       />
       <SliderRow
-        label="Distance scaling by connections"
-        value={params.connectionDistanceGain}
+        label="Hierarchy distance (A)"
+        value={params.hierarchyDistance}
         min={0}
         max={1000}
         step={1}
         format={(v) => v.toFixed(0)}
-        onChange={(v) => onChange({ ...params, connectionDistanceGain: v })}
+        onChange={(v) => onChange({ ...params, hierarchyDistance: v })}
       />
     </div>
   );

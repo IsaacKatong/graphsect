@@ -30,10 +30,11 @@ type GraphSectProps = {
 };
 
 const DEFAULT_PARAMS: TagMeshParams = {
-  maxNeighbors: 6,
+  mainNeighbors: 6,
+  subNeighbors: 12,
   sizeScale: 10,
-  distance: 220,
-  connectionDistanceGain: 1,
+  distance: 40,
+  hierarchyDistance: 100,
 };
 
 function GraphSect({
