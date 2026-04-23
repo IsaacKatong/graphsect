@@ -372,15 +372,29 @@ export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
         </button>
         <button
           onClick={resetView}
-          title="Reset view"
+          title="Reset view to fit"
           style={{ ...zoomBtnStyle, fontSize: 10 }}
         >
-          {Math.round(zoom * 100)}%
+          Reset
         </button>
+        <div style={zoomReadoutStyle}>{Math.round(zoom * 100)}%</div>
       </div>
     </div>
   );
 }
+
+const zoomReadoutStyle: CSSProperties = {
+  width: 28,
+  height: 16,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#94a3b8",
+  fontFamily: "system-ui, sans-serif",
+  fontSize: 9,
+  lineHeight: 1,
+  userSelect: "none",
+};
 
 const zoomBtnStyle: CSSProperties = {
   width: 28,
