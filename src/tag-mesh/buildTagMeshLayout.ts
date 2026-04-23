@@ -402,14 +402,47 @@ export function buildTagMeshLayout(
   }
 
   // ── Phase 3c: compute trueSize for each main ──────────────────────────
-  for (const n of tree.values()) {
-    if (n.role !== "main") continue;
+  // Post-order traversal (leaves first) so each parent can fold in its
+  // main-children's already-computed trueSize.
+  const mainPostOrder: string[] = [];
+  {
+    type Frame = { tag: string; visitedChildren: boolean };
+    const stack: Frame[] = [];
+    for (const rootTag of orphanMains) {
+      stack.push({ tag: rootTag, visitedChildren: false });
+      while (stack.length > 0) {
+        const top = stack[stack.length - 1];
+        if (!top.visitedChildren) {
+          top.visitedChildren = true;
+          const n = tree.get(top.tag)!;
+          for (const c of n.mainChildren) {
+            stack.push({ tag: c, visitedChildren: false });
+          }
+        } else {
+          mainPostOrder.push(top.tag);
+          stack.pop();
+        }
+      }
+    }
+  }
+
+  for (const tag of mainPostOrder) {
+    const n = tree.get(tag)!;
     const mainR = sizeFor(n.score);
     let reach = mainR;
     for (const subTag of n.subChildren) {
       const off = n.subOffsets.get(subTag)!;
       const sR = sizeFor(tree.get(subTag)!.score);
       const r = off.dist + sR;
+      if (r > reach) reach = r;
+    }
+    // Main children: each child C is placed at mainR + C.trueSize along
+    // angleFromParent, and C's cloud extends another C.trueSize outward,
+    // so the farthest point of C's cloud from n's center is
+    // mainR + 2 * C.trueSize.
+    for (const childTag of n.mainChildren) {
+      const child = tree.get(childTag)!;
+      const r = mainR + 2 * child.trueSize;
       if (r > reach) reach = r;
     }
     n.trueSize = reach + D + A;
@@ -437,7 +470,7 @@ export function buildTagMeshLayout(
       if (n.parent !== null) {
         const parent = tree.get(n.parent)!;
         const ang = n.angleFromParent;
-        let dist = parent.trueSize + n.trueSize;
+        let dist = sizeFor(parent.score) + n.trueSize;
         let x = parent.x + dist * Math.cos(ang);
         let y = parent.y + dist * Math.sin(ang);
 
