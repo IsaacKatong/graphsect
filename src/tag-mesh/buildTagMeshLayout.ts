@@ -337,36 +337,30 @@ export function buildTagMeshLayout(
     n.trueSize = reach + D + A;
   }
 
-  // ── Phase 3b: per-main angular layout (called as each main is placed) ─
-  function layoutAngles(m: TreeNode): void {
+  // ── Phase 3b: sub angles for a main (main-child slots are picked
+  // dynamically during Phase 3c, so they are not pre-assigned here). ──
+  function layoutSubAngles(m: TreeNode): void {
     const slotStep = X > 0 ? TAU / X : 0;
     const hasParent = m.parent !== null;
     const base = hasParent ? m.parentRefAngle : -Math.PI / 2;
-    const slots: number[] = [];
-    for (let i = 0; i < X; i++) slots.push(base + i * slotStep);
-
-    m.mainSlotAngles = hasParent ? slots.slice(1) : slots.slice();
-    for (let i = 0; i < m.mainChildren.length; i++) {
-      const child = tree.get(m.mainChildren[i])!;
-      const a = m.mainSlotAngles[i] ?? 0;
-      child.angleFromParent = a;
-      child.parentRefAngle = a + Math.PI;
-    }
 
     const subAngles: number[] = [];
     for (let i = 0; i < X; i++) {
-      const start = slots[i];
+      const slotAngle = base + i * slotStep;
       for (let j = 0; j < subsPerGap; j++) {
-        subAngles.push(start + ((j + 1) / (subsPerGap + 1)) * slotStep);
+        subAngles.push(slotAngle + ((j + 1) / (subsPerGap + 1)) * slotStep);
       }
     }
     m.subSlotAngles = subAngles;
+    // Also record the candidate main-child slot angles (for reference / tests).
+    m.mainSlotAngles = [];
+    for (let k = 0; k < X; k++) {
+      if (hasParent && k === 0) continue;
+      m.mainSlotAngles.push(base + k * slotStep);
+    }
     for (let i = 0; i < m.subChildren.length; i++) {
       const sub = tree.get(m.subChildren[i])!;
-      const a =
-        subAngles[i] ??
-        subAngles[subAngles.length - 1] ??
-        (m.mainSlotAngles[0] ?? 0);
+      const a = subAngles[i] ?? subAngles[subAngles.length - 1] ?? 0;
       sub.angleFromParent = a;
       sub.parentRefAngle = a + Math.PI;
     }
@@ -449,40 +443,54 @@ export function buildTagMeshLayout(
     return { angle, dist, x, y, circleOk: true, lineOk, minLineGap };
   }
 
-  function placeMain(n: TreeNode, parent: TreeNode, placed: string[]): void {
-    const baseAngle = n.angleFromParent;
+  // Place all of `parent`'s main children. Each child dynamically picks the
+  // best available slot (with a small rotation budget within the slot wedge),
+  // rather than being pre-assigned to a fixed slot index. This is what lets
+  // us avoid parent→child lines that point straight at an "uncle" main.
+  function placeMainChildrenOf(parent: TreeNode, placed: string[]): void {
+    if (parent.mainChildren.length === 0) return;
     const slotStep = X > 0 ? TAU / X : TAU;
-    // Stay within our slot wedge so we don't stray into a sibling's space.
     const maxOffset = slotStep * 0.45;
+    const fractions = [0, 0.15, -0.15, 0.3, -0.3, 0.45, -0.45];
+    const slots = parent.mainSlotAngles.map((a) => ({ angle: a, used: false }));
 
-    // Try angular offsets: start at the slot center, then sweep symmetrically.
-    const offsets: number[] = [0];
-    const STEPS = 10;
-    for (let i = 1; i <= STEPS; i++) {
-      const frac = i / STEPS;
-      offsets.push(+maxOffset * frac);
-      offsets.push(-maxOffset * frac);
-    }
+    for (const childTag of parent.mainChildren) {
+      const child = tree.get(childTag)!;
 
-    let best: TrialResult | null = null;
-    for (const off of offsets) {
-      const r = trial(n, parent, baseAngle + off, placed);
-      if (r.lineOk) {
-        best = r;
-        break;
+      let best: { result: TrialResult; slotIdx: number } | null = null;
+      for (let si = 0; si < slots.length; si++) {
+        if (slots[si].used) continue;
+        const slotCenter = slots[si].angle;
+        for (const f of fractions) {
+          const angle = slotCenter + f * maxOffset;
+          const r = trial(child, parent, angle, placed);
+          const better =
+            best === null
+              ? true
+              : r.lineOk !== best.result.lineOk
+                ? r.lineOk
+                : r.minLineGap > best.result.minLineGap + EPS
+                  ? true
+                  : Math.abs(r.minLineGap - best.result.minLineGap) <= EPS &&
+                    r.dist < best.result.dist - EPS;
+          if (better) best = { result: r, slotIdx: si };
+        }
       }
-      // Otherwise remember the attempt with the largest min gap as a fallback.
-      if (best === null || r.minLineGap > best.minLineGap) best = r;
-    }
 
-    if (best === null) {
-      best = trial(n, parent, baseAngle, placed);
-    }
+      if (best === null) {
+        const fallbackAngle = slots[0]?.angle ?? 0;
+        const r = trial(child, parent, fallbackAngle, placed);
+        best = { result: r, slotIdx: 0 };
+      }
 
-    n.angleFromParent = best.angle;
-    n.parentRefAngle = best.angle + Math.PI;
-    n.x = best.x;
-    n.y = best.y;
+      slots[best.slotIdx].used = true;
+      child.angleFromParent = best.result.angle;
+      child.parentRefAngle = best.result.angle + Math.PI;
+      child.x = best.result.x;
+      child.y = best.result.y;
+      layoutSubAngles(child);
+      placed.push(child.tag);
+    }
   }
 
   const placedMainsGlobal: string[] = [];
@@ -498,21 +506,15 @@ export function buildTagMeshLayout(
       rootNode.x = r * Math.cos(a);
       rootNode.y = r * Math.sin(a);
     }
-    layoutAngles(rootNode);
+    layoutSubAngles(rootNode);
     placedMainsGlobal.push(rootTag);
 
     const queue: string[] = [rootTag];
     while (queue.length) {
       const parentTag = queue.shift()!;
       const parentNode = tree.get(parentTag)!;
+      placeMainChildrenOf(parentNode, placedMainsGlobal);
       for (const childTag of parentNode.mainChildren) {
-        const child = tree.get(childTag)!;
-        placeMain(child, parentNode, placedMainsGlobal);
-        // After the child's angle is settled, lay out its own children's
-        // angles. That way any rotation applied here propagates to the
-        // grandchildren naturally.
-        layoutAngles(child);
-        placedMainsGlobal.push(childTag);
         queue.push(childTag);
       }
     }
