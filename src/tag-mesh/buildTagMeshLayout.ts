@@ -492,13 +492,27 @@ export function buildTagMeshLayout(
         let x = parent.x + dist * Math.cos(ang);
         let y = parent.y + dist * Math.sin(ang);
 
+        // Ancestors of n (parent, grandparent, …). Their trueSize disks
+        // are *supposed* to contain n's subtree — bumping against them
+        // would push n outside its own ancestors, which is nonsense. The
+        // cousins/siblings (non-ancestor placed mains) are the real
+        // keep-out set.
+        const ancestors = new Set<string>();
+        {
+          let cur: string | null = n.parent;
+          while (cur !== null) {
+            ancestors.add(cur);
+            cur = tree.get(cur)!.parent;
+          }
+        }
+
         let bumped = true;
         let safety = 0;
         while (bumped && safety < 64) {
           safety++;
           bumped = false;
           for (const otherTag of placedMainsGlobal) {
-            if (otherTag === n.parent) continue;
+            if (ancestors.has(otherTag)) continue;
             const o = tree.get(otherTag)!;
             const dx = x - o.x;
             const dy = y - o.y;
