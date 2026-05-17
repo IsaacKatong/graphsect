@@ -30,7 +30,7 @@ describe("CarouselsView", () => {
     expect(tagButtons).toEqual(["tag-a", "tag-b", "tag-c"]);
   });
 
-  it("rewrites filterState.datumTags to a single-element list when a tag is clicked", () => {
+  it("adds the clicked tag to datumTags when no filter is set yet", () => {
     const onFilterStateChange = vi.fn();
     render(
       <CarouselsView
@@ -48,7 +48,7 @@ describe("CarouselsView", () => {
     });
   });
 
-  it("replaces an existing datumTags selection rather than appending", () => {
+  it("appends to an existing datumTags selection rather than replacing it", () => {
     const onFilterStateChange = vi.fn();
     render(
       <CarouselsView
@@ -65,8 +65,74 @@ describe("CarouselsView", () => {
     fireEvent.click(screen.getByTitle("tag-c"));
     expect(onFilterStateChange).toHaveBeenCalledWith({
       ...EMPTY_FILTER_STATE,
+      datumTags: { selectedTags: ["tag-a", "tag-c"] },
+    });
+  });
+
+  it("removes a tag from the selection when it is clicked again", () => {
+    const onFilterStateChange = vi.fn();
+    render(
+      <CarouselsView
+        sourceGraph={sourceGraph}
+        graph={sourceGraph}
+        filterState={{
+          ...EMPTY_FILTER_STATE,
+          datumTags: { selectedTags: ["tag-a", "tag-c"] },
+        }}
+        onFilterStateChange={onFilterStateChange}
+        carousels={[mostConnected]}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("tag-a"));
+    expect(onFilterStateChange).toHaveBeenCalledWith({
+      ...EMPTY_FILTER_STATE,
       datumTags: { selectedTags: ["tag-c"] },
     });
+  });
+
+  it("clears datumTags when removing the last selected tag", () => {
+    const onFilterStateChange = vi.fn();
+    render(
+      <CarouselsView
+        sourceGraph={sourceGraph}
+        graph={sourceGraph}
+        filterState={{
+          ...EMPTY_FILTER_STATE,
+          datumTags: { selectedTags: ["tag-b"] },
+        }}
+        onFilterStateChange={onFilterStateChange}
+        carousels={[mostConnected]}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("tag-b"));
+    expect(onFilterStateChange).toHaveBeenCalledWith({
+      ...EMPTY_FILTER_STATE,
+      datumTags: null,
+    });
+  });
+
+  it("highlights every tag present in filterState.datumTags (set elsewhere too)", () => {
+    // The carousel highlight is driven entirely by filterState.datumTags, so
+    // a tag picked in the Filters bar (or programmatically) is reflected
+    // here without any extra wiring.
+    render(
+      <CarouselsView
+        sourceGraph={sourceGraph}
+        graph={sourceGraph}
+        filterState={{
+          ...EMPTY_FILTER_STATE,
+          datumTags: { selectedTags: ["tag-a", "tag-c"] },
+        }}
+        onFilterStateChange={() => {}}
+        carousels={[mostConnected]}
+      />,
+    );
+    const highlighted = (title: string) =>
+      getComputedStyle(screen.getByTitle(title)).backgroundColor;
+    // tag-a and tag-c selected → highlighted; tag-b not selected → plain.
+    expect(highlighted("tag-a")).not.toEqual(highlighted("tag-b"));
+    expect(highlighted("tag-c")).not.toEqual(highlighted("tag-b"));
+    expect(highlighted("tag-a")).toEqual(highlighted("tag-c"));
   });
 
   it("renders multiple carousel sections in the supplied order", () => {

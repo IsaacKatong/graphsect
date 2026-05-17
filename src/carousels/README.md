@@ -3,8 +3,12 @@
 A **carousel** is a named list of datum tags drawn from an `ExternalGraph`.
 The Carousels view renders each carousel as a title plus an equal-sized
 rectangle for every tag (text scaled to fit, wrapping to new lines once a row
-overflows). Clicking a tag rewrites the `datumTags` filter so the rest of the
-app sees only datums carrying that tag.
+overflows). Clicking a tag **toggles** its membership in the
+`filterState.datumTags.selectedTags` array — adding it if absent, removing it
+if already selected — so the carousel composes with the existing Filters bar
+instead of overwriting it. The highlight on each tag is derived from that
+same array, so tags selected anywhere (Filters bar, here, or
+programmatically) light up in every carousel that lists them.
 
 The interface is intentionally tiny so clients can register their own
 carousels:

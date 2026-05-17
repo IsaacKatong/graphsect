@@ -26,10 +26,20 @@ function CarouselsView({
   onFilterStateChange,
   carousels,
 }: CarouselsViewProps) {
+  const selectedTags = filterState.datumTags?.selectedTags ?? [];
+
   function onTagClick(tag: string) {
+    // Toggle membership in the existing datumTags selection — adding when
+    // not present, removing when already there. Highlight state and click
+    // semantics share the same source of truth (`filterState.datumTags`),
+    // so a tag selected anywhere (Filters bar, here, or programmatically)
+    // shows up highlighted everywhere.
+    const next = selectedTags.includes(tag)
+      ? selectedTags.filter((t) => t !== tag)
+      : [...selectedTags, tag];
     onFilterStateChange({
       ...filterState,
-      datumTags: { selectedTags: [tag] },
+      datumTags: next.length > 0 ? { selectedTags: next } : null,
     });
   }
 
@@ -59,10 +69,7 @@ function CarouselsView({
                 <CarouselTag
                   key={tag}
                   tag={tag}
-                  selected={
-                    filterState.datumTags?.selectedTags.length === 1 &&
-                    filterState.datumTags.selectedTags[0] === tag
-                  }
+                  selected={selectedTags.includes(tag)}
                   onClick={() => onTagClick(tag)}
                 />
               ))}
@@ -187,7 +194,9 @@ const tagBoxStyle: CSSProperties = {
   justifyContent: "center",
   background: "#1e293b",
   color: "#e2e8f0",
-  border: "1px solid #334155",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "#334155",
   borderRadius: 6,
   cursor: "pointer",
   fontFamily: "system-ui, sans-serif",
