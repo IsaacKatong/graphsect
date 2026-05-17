@@ -89,6 +89,39 @@ describe("CarouselsView", () => {
     expect(headings).toEqual(["Reverse alpha", "Most Connected"]);
   });
 
+  it("runs each Carousel.selection against the filtered graph, not the source", () => {
+    // The Carousels view should call selection() with the post-filter graph
+    // that the ViewManager passes in as `graph`, so re-filtering re-renders
+    // the sections with whatever tags remain.
+    const seenGraphs: number[] = [];
+    const probe: Carousel = {
+      name: "Probe",
+      selection: (g) => {
+        seenGraphs.push(g.datums.length);
+        return g.datums.flatMap((d) =>
+          g.datumTags.filter((t) => t.datumID === d.id).map((t) => t.name),
+        );
+      },
+    };
+    const filtered = {
+      ...sourceGraph,
+      datums: sourceGraph.datums.slice(0, 1),
+      datumTags: sourceGraph.datumTags.filter((t) => t.datumID === "datum-1"),
+    };
+    render(
+      <CarouselsView
+        sourceGraph={sourceGraph}
+        graph={filtered}
+        filterState={EMPTY_FILTER_STATE}
+        onFilterStateChange={() => {}}
+        carousels={[probe]}
+      />,
+    );
+    // The probe should have seen the filtered (1-datum) graph, not the source.
+    expect(seenGraphs).toContain(1);
+    expect(seenGraphs).not.toContain(sourceGraph.datums.length);
+  });
+
   it("falls back to an empty state when a carousel produces no tags", () => {
     const blank: Carousel = { name: "Blank", selection: () => [] };
     render(

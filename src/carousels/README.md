@@ -18,10 +18,11 @@ type Carousel = {
 };
 ```
 
-The `selection` function is given the **source graph** (pre-filter) so the
-carousel can offer the full menu of tags regardless of the current filter
-state. The function's return order is the render order — sort however you
-like.
+The `selection` function is given the **post-filter graph** that the
+ViewManager hands to every view, so changing a filter (including by clicking
+a carousel tag) automatically re-runs `selection` against the narrowed-down
+graph and the carousel re-renders. The function's return order is the render
+order — sort however you like.
 
 ## Default carousel — Most Connected
 

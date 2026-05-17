@@ -21,7 +21,7 @@ type CarouselsViewProps = GraphViewProps & {
 };
 
 function CarouselsView({
-  sourceGraph,
+  graph,
   filterState,
   onFilterStateChange,
   carousels,
@@ -33,15 +33,17 @@ function CarouselsView({
     });
   }
 
-  // Sections render in the order they're declared in the carousels array.
+  // Each carousel runs against the filtered graph the ViewManager hands us,
+  // so applying a filter re-renders the sections with whatever tags remain
+  // in the narrowed-down external graph.
   const sections = useMemo(
     () =>
       carousels.map((c) => ({
         key: c.name,
         title: c.name,
-        tags: c.selection(sourceGraph),
+        tags: c.selection(graph),
       })),
-    [carousels, sourceGraph],
+    [carousels, graph],
   );
 
   return (

@@ -73,6 +73,25 @@ describe("filterByDatumTags", () => {
     const result = filterByDatumTags(graph, createDatumTagsFilter([]));
     expect(result).toBe(graph);
   });
+
+  it("prunes datum-scoped tables to match the surviving datums", () => {
+    // Regression: datumTags / datumDimensions / datumTagAssociations used to
+    // leak entries from dropped datums, so downstream consumers (e.g. the
+    // Carousels view) kept seeing tags that no longer existed in the
+    // filtered graph.
+    const graph = createFilterTestGraph();
+    const result = filterByDatumTags(
+      graph,
+      createDatumTagsFilter(["tag-gamma"]),
+    );
+    expect(result.datums.map((d) => d.id)).toEqual(["d3"]);
+    expect(result.datumTags.map((t) => `${t.name}:${t.datumID}`)).toEqual([
+      "tag-gamma:d3",
+    ]);
+    expect(result.datumDimensions.map((d) => `${d.name}:${d.datumID}`)).toEqual(
+      ["importance:d3", "complexity:d3"],
+    );
+  });
 });
 
 describe("filterByConnectedEdges", () => {

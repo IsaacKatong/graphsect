@@ -8,7 +8,7 @@ import {
   DimensionValuesFilter,
 } from "./types";
 
-function pruneOrphanedEdges(graph: ExternalGraph): ExternalGraph {
+function pruneDanglingForDatums(graph: ExternalGraph): ExternalGraph {
   const datumIDs = new Set(graph.datums.map((d) => d.id));
   const edges = graph.edges.filter(
     (e) => datumIDs.has(e.fromDatumID) && datumIDs.has(e.toDatumID),
@@ -16,10 +16,25 @@ function pruneOrphanedEdges(graph: ExternalGraph): ExternalGraph {
   const edgeIDSet = new Set(
     edges.map((e) => `${e.fromDatumID}->${e.toDatumID}`),
   );
+  // Datum-scoped tables (tags, dimensions, tag associations) came from the
+  // pre-filter graph and may still reference datums that were dropped, so
+  // prune them to match the current `datums` set. Callers shrink `datums`
+  // and expect a fully-consistent graph back from this helper.
+  const datumTags = graph.datumTags.filter((t) => datumIDs.has(t.datumID));
+  const survivingTagNames = new Set(datumTags.map((t) => t.name));
   return {
     ...graph,
     edges,
     edgeTags: graph.edgeTags.filter((t) => edgeIDSet.has(t.edgeID)),
+    datumTags,
+    datumDimensions: graph.datumDimensions.filter((d) =>
+      datumIDs.has(d.datumID),
+    ),
+    datumTagAssociations: graph.datumTagAssociations.filter(
+      (a) =>
+        survivingTagNames.has(a.childTagName) ||
+        survivingTagNames.has(a.parentTagName),
+    ),
   };
 }
 
@@ -57,7 +72,7 @@ export function filterByDatumType(
   if (filter.selectedTypes.length === 0) return graph;
   const typeSet = new Set(filter.selectedTypes);
   const datums = graph.datums.filter((d) => typeSet.has(d.type));
-  return pruneOrphanedEdges({ ...graph, datums });
+  return pruneDanglingForDatums({ ...graph, datums });
 }
 
 export function filterByDatumTags(
@@ -70,7 +85,7 @@ export function filterByDatumTags(
     graph.datumTags.filter((t) => tagSet.has(t.name)).map((t) => t.datumID),
   );
   const datums = graph.datums.filter((d) => matchingDatumIDs.has(d.id));
-  return pruneOrphanedEdges({ ...graph, datums });
+  return pruneDanglingForDatums({ ...graph, datums });
 }
 
 export function filterByConnectedEdges(
@@ -165,5 +180,5 @@ export function filterByDimensionValues(
       return value >= range.min && value <= range.max;
     });
   });
-  return pruneOrphanedEdges({ ...graph, datums });
+  return pruneDanglingForDatums({ ...graph, datums });
 }
