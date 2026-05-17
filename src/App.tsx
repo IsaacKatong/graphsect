@@ -7,6 +7,7 @@ import {
   EMPTY_FILTER_STATE,
 } from "./filtering/types";
 import { applyFilters } from "./filtering/applyFilters";
+import { transformGraph } from "./external-graph/transformGraph";
 import ViewManager from "./views/ViewManager";
 import {
   BUILTIN_VIEWS,
@@ -16,6 +17,7 @@ import {
 import { createCarouselsView } from "./views/views/CarouselsView";
 import { GraphView } from "./views/types";
 import { ViewSelectorProvider } from "./views/ViewSelectorContext";
+import NodeDetailPanel from "./graph-view/NodeDetailPanel";
 import { Carousel } from "./carousels/types";
 
 type GraphSectProps = {
@@ -47,6 +49,10 @@ function GraphSect({
   const [activeViewIds, setActiveViewIdsRaw] = useState<string[]>(() =>
     ensurePinned(defaultActiveViewIds),
   );
+  // Global datum selection — one slot, shared across every view. Clicking a
+  // datum anywhere replaces this id; the NodeDetailPanel below the stack
+  // re-renders against the new selection. Set to `null` to close the panel.
+  const [selectedDatumId, setSelectedDatumId] = useState<string | null>(null);
 
   const setActiveViewIds = useCallback(
     (next: string[]) => setActiveViewIdsRaw(ensurePinned(next)),
@@ -84,6 +90,15 @@ function GraphSect({
     [activeViewIds],
   );
 
+  // Resolve the global selection against the *source* graph so the detail
+  // panel keeps working even if a filter just hid the selected datum.
+  const selectedNode = useMemo(() => {
+    if (!selectedDatumId) return null;
+    return (
+      transformGraph(graph).nodes.find((n) => n.id === selectedDatumId) ?? null
+    );
+  }, [graph, selectedDatumId]);
+
   return (
     <div style={rootStyle}>
       <ViewSelectorProvider
@@ -100,8 +115,14 @@ function GraphSect({
           filteredGraph={filteredGraph}
           filterState={filterState}
           onFilterStateChange={setFilterState}
+          selectedDatumId={selectedDatumId}
+          onSelectedDatumIdChange={setSelectedDatumId}
         />
       </ViewSelectorProvider>
+      <NodeDetailPanel
+        node={selectedNode}
+        onClose={() => setSelectedDatumId(null)}
+      />
     </div>
   );
 }

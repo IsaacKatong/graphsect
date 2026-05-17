@@ -10,8 +10,10 @@ The built-in `GraphView` implementations. Each file in here exports a
 - `TagMeshView.tsx` — surfaces `TagMesh2DView` + `TagMeshControls`. Reads the
   filtered `graph`, runs `transformGraph` plus `computeTagScores` (the same
   score the carousels use) and threads both into the layout.
-- `PlotGraphView.tsx` — surfaces `PlotView` and `DimensionSelector`. Hosts
-  the `NodeDetailPanel` for nodes clicked in the plot.
+- `PlotGraphView.tsx` — surfaces `PlotView` and `DimensionSelector`. Clicks
+  on a plot node call `onSelectedDatumIdChange(datumId)`; the shared
+  `NodeDetailPanel` lives at the `<GraphSect>` level so the same panel is
+  re-used regardless of which view triggered the selection.
 - `CarouselsView.tsx` — renders one section per `Carousel`. Exports
   `createCarouselsView(carousels?)` so the caller can build a view bound to
   their own list (the default registry uses `DEFAULT_CAROUSELS`).

@@ -29,6 +29,8 @@ type GraphViewProps = {
   graph: ExternalGraph;                             // post-filter — what you display
   filterState: FilterState;                         // current filter state
   onFilterStateChange: (next: FilterState) => void; // edit the filter state
+  selectedDatumId: string | null;                   // globally-selected datum, or null
+  onSelectedDatumIdChange: (id: string | null) => void;
 };
 ```
 
@@ -39,7 +41,11 @@ applied (what most views actually render). It may optionally update
 
 Because the filter state and the external graph live above all views, every
 active view re-renders whenever either changes — there is no per-view stale
-state to worry about.
+state to worry about. The same is true for `selectedDatumId`: it lives at the
+`<GraphSect>` level, every view sees the same value, and the single shared
+`<NodeDetailPanel>` that `<GraphSect>` renders below the stack reflects
+whatever datum any view most recently selected. Views that don't surface
+clickable datums can simply ignore the prop.
 
 ## Built-in views
 

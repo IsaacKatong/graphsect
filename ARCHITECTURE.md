@@ -36,9 +36,11 @@ ExternalGraph (source)
        │       │
        │       └── hosts ViewSelector via ViewSelectorContext (multi-select non-pinned views)
        ├── TagMeshView ─── transformGraph() + computeTagScores() ──→ TagMesh2DView (SVG)
-       ├── PlotGraphView ─ PlotView (Plotly) ──→ NodeDetailPanel on click
-       └── CarouselsView ─ runs each Carousel.selection(sourceGraph) ──→ tag rectangles
-                                                       click → datumTags filter = {[tag]}
+       ├── PlotGraphView ─ PlotView (Plotly) ──→ onSelectedDatumIdChange(datumId)
+       └── CarouselsView ─ runs each Carousel.selection(graph) ──→ tag rectangles
+                                              click → toggles tag in datumTags
+
+  selectedDatumId (hoisted to <GraphSect>) ──→ NodeDetailPanel (single shared instance)
 ```
 
 ### 1. Input — ExternalGraph
@@ -91,7 +93,15 @@ Key files:
 
 ### 6. Inspect — NodeDetailPanel
 
-`src/graph-view/NodeDetailPanel.tsx` displays when a user clicks a node in the plot view. It shows the node's name, type, tags, dimensions, and full content in a slide-out side panel.
+`src/graph-view/NodeDetailPanel.tsx` is the shared detail panel. It lives at
+the `<GraphSect>` level (not inside any view), reads a single
+`selectedDatumId` state hoisted alongside `filterState`, and renders the
+selected datum's name, type, tags, dimensions, and full content in a slide-out
+side panel. Any view receives the current `selectedDatumId` plus an
+`onSelectedDatumIdChange` setter through `GraphViewProps`; clicking a datum
+anywhere swaps the panel to that datum without spawning a second instance.
+Resolution runs against the source graph so a hidden datum stays viewable
+when a filter would otherwise drop it from the post-filter graph.
 
 ### 7. View Management
 

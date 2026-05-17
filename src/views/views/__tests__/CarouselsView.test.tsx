@@ -20,6 +20,8 @@ describe("CarouselsView", () => {
         graph={sourceGraph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -38,6 +40,8 @@ describe("CarouselsView", () => {
         graph={sourceGraph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={onFilterStateChange}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -59,6 +63,8 @@ describe("CarouselsView", () => {
           datumTags: { selectedTags: ["tag-a"] },
         }}
         onFilterStateChange={onFilterStateChange}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -80,6 +86,8 @@ describe("CarouselsView", () => {
           datumTags: { selectedTags: ["tag-a", "tag-c"] },
         }}
         onFilterStateChange={onFilterStateChange}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -101,6 +109,8 @@ describe("CarouselsView", () => {
           datumTags: { selectedTags: ["tag-b"] },
         }}
         onFilterStateChange={onFilterStateChange}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -124,6 +134,8 @@ describe("CarouselsView", () => {
           datumTags: { selectedTags: ["tag-a", "tag-c"] },
         }}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
       />,
     );
@@ -146,6 +158,8 @@ describe("CarouselsView", () => {
         graph={sourceGraph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[custom, mostConnected]}
       />,
     );
@@ -180,6 +194,8 @@ describe("CarouselsView", () => {
         graph={filtered}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[probe]}
       />,
     );
@@ -196,6 +212,8 @@ describe("CarouselsView", () => {
         graph={sourceGraph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
         carousels={[blank]}
       />,
     );

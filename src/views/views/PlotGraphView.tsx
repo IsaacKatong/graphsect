@@ -1,20 +1,16 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import PlotView from "../../plotting/PlotView";
 import DimensionSelector from "../../plotting/DimensionSelector";
-import NodeDetailPanel from "../../graph-view/NodeDetailPanel";
-import {
-  transformGraph,
-  ForceGraphNode,
-} from "../../external-graph/transformGraph";
 import { GraphViewProps } from "../types";
 
-export default function PlotGraphView({ sourceGraph, graph }: GraphViewProps) {
+export default function PlotGraphView({
+  sourceGraph,
+  graph,
+  onSelectedDatumIdChange,
+}: GraphViewProps) {
   const [dimensions, setDimensions] = useState<string[]>([]);
   const [showEdges, setShowEdges] = useState(false);
   const [open, setOpen] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<ForceGraphNode | null>(null);
-
-  const graphData = useMemo(() => transformGraph(graph), [graph]);
 
   return (
     <div style={containerStyle}>
@@ -29,10 +25,7 @@ export default function PlotGraphView({ sourceGraph, graph }: GraphViewProps) {
           graph={graph}
           dimensions={dimensions}
           showEdges={showEdges}
-          onNodeClick={(datumId) => {
-            const node = graphData.nodes.find((n) => n.id === datumId);
-            if (node) setSelectedNode(node);
-          }}
+          onNodeClick={(datumId) => onSelectedDatumIdChange(datumId)}
         />
       )}
       <div style={toolbarStyle}>
@@ -46,10 +39,6 @@ export default function PlotGraphView({ sourceGraph, graph }: GraphViewProps) {
           onOpenChange={setOpen}
         />
       </div>
-      <NodeDetailPanel
-        node={selectedNode}
-        onClose={() => setSelectedNode(null)}
-      />
     </div>
   );
 }

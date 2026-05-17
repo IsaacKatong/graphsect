@@ -11,6 +11,8 @@ type ViewManagerProps = {
   filteredGraph: ExternalGraph;
   filterState: FilterState;
   onFilterStateChange: (next: FilterState) => void;
+  selectedDatumId: string | null;
+  onSelectedDatumIdChange: (id: string | null) => void;
 };
 
 export default function ViewManager({
@@ -20,6 +22,8 @@ export default function ViewManager({
   filteredGraph,
   filterState,
   onFilterStateChange,
+  selectedDatumId,
+  onSelectedDatumIdChange,
 }: ViewManagerProps) {
   // Active views render in registry order, not selection order, so the stack
   // is stable regardless of which order the user toggled views on.
@@ -45,6 +49,8 @@ export default function ViewManager({
           graph={filteredGraph}
           filterState={filterState}
           onFilterStateChange={onFilterStateChange}
+          selectedDatumId={selectedDatumId}
+          onSelectedDatumIdChange={onSelectedDatumIdChange}
         />
       )}
     />

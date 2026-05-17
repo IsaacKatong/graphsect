@@ -30,6 +30,8 @@ describe("ViewManager", () => {
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
       />,
     );
 
@@ -51,6 +53,8 @@ describe("ViewManager", () => {
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
       />,
     );
     expect(screen.getByText(/no views selected/i)).toBeTruthy();
@@ -68,6 +72,8 @@ describe("ViewManager", () => {
         filteredGraph={filteredGraph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={() => {}}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
       />,
     );
     // mockView prints `datums:<count>` from the `graph` prop (filtered graph).
@@ -102,6 +108,8 @@ describe("ViewManager", () => {
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
         onFilterStateChange={onFilterStateChange}
+        selectedDatumId={null}
+        onSelectedDatumIdChange={() => {}}
       />,
     );
     screen.getByTestId("trigger-a").click();
@@ -109,5 +117,53 @@ describe("ViewManager", () => {
       ...EMPTY_FILTER_STATE,
       datumType: { selectedTypes: ["CODE"] },
     });
+  });
+
+  it("threads the global selection state through to every view", () => {
+    // Two views both look at the same selectedDatumId and call the same
+    // setter. That's how the App-level NodeDetailPanel ends up with one
+    // detail panel shared across all views.
+    const onSelectedDatumIdChange = vi.fn();
+    const views = [
+      createMockView("a", {
+        Component: ({ selectedDatumId, onSelectedDatumIdChange }) => (
+          <div data-testid="view-a">
+            <span data-testid="sel-a">{selectedDatumId ?? "none"}</span>
+            <button
+              data-testid="pick-a"
+              onClick={() => onSelectedDatumIdChange("from-view-a")}
+            >
+              pick
+            </button>
+          </div>
+        ),
+      }),
+      createMockView("b", {
+        Component: ({ selectedDatumId }) => (
+          <span data-testid="sel-b">{selectedDatumId ?? "none"}</span>
+        ),
+      }),
+    ];
+    const graph = createMockGraph();
+    render(
+      <ViewManager
+        views={views}
+        activeIds={["a", "b"]}
+        sourceGraph={graph}
+        filteredGraph={graph}
+        filterState={EMPTY_FILTER_STATE}
+        onFilterStateChange={() => {}}
+        selectedDatumId="seed"
+        onSelectedDatumIdChange={onSelectedDatumIdChange}
+      />,
+    );
+
+    // Both views observe the same selection prop.
+    expect(screen.getByTestId("sel-a").textContent).toBe("seed");
+    expect(screen.getByTestId("sel-b").textContent).toBe("seed");
+
+    // A click in view A bubbles the new id back through the manager.
+    screen.getByTestId("pick-a").click();
+    expect(onSelectedDatumIdChange).toHaveBeenCalledWith("from-view-a");
   });
 });
