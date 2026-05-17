@@ -3,6 +3,7 @@ import TagMesh2DView from "../../tag-mesh/TagMesh2DView";
 import TagMeshControls from "../../tag-mesh/TagMeshControls";
 import { transformGraph } from "../../external-graph/transformGraph";
 import { TagMeshParams } from "../../tag-mesh/buildTagMeshLayout";
+import { computeTagScores } from "../../carousels/scoreTag";
 import { GraphViewProps } from "../types";
 
 const DEFAULT_PARAMS: TagMeshParams = {
@@ -16,10 +17,11 @@ const DEFAULT_PARAMS: TagMeshParams = {
 export default function TagMeshView({ graph }: GraphViewProps) {
   const [params, setParams] = useState<TagMeshParams>(DEFAULT_PARAMS);
   const data = useMemo(() => transformGraph(graph), [graph]);
+  const scores = useMemo(() => computeTagScores(graph), [graph]);
 
   return (
     <div style={containerStyle}>
-      <TagMesh2DView data={data} params={params} />
+      <TagMesh2DView data={data} params={params} scores={scores} />
       <TagMeshControls params={params} onChange={setParams} />
     </div>
   );

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { transformGraph } from "../../external-graph/transformGraph";
 import { ExternalGraph } from "../../external-graph/types";
 import { buildTagMeshLayout, TagMeshParams } from "../buildTagMeshLayout";
+import { computeTagScores } from "../../carousels/scoreTag";
 import advancedGraph from "../../../examples/advanced-graph.json";
 
 function distPointToSegment(
@@ -34,7 +35,8 @@ function collectCollisions(
   tolerance = 0.5,
 ): Issue[] {
   const data = transformGraph(graph);
-  const layout = buildTagMeshLayout(data, params);
+  const scores = computeTagScores(graph);
+  const layout = buildTagMeshLayout(data, params, scores);
   const byTag = new Map(layout.tags.map((t) => [t.tag, t]));
   const mains = layout.tags.filter((t) => t.role === "main");
   const subs = layout.tags.filter((t) => t.role === "sub");

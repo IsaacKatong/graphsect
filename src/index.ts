@@ -19,4 +19,16 @@ export {
   FILTERS_VIEW,
   TAG_MESH_VIEW,
   PLOT_VIEW,
+  CAROUSELS_VIEW,
 } from "./views/builtinViews";
+export { createCarouselsView } from "./views/views/CarouselsView";
+export type {
+  Carousel,
+  CarouselDatumTagSelection,
+} from "./carousels/types";
+export {
+  MOST_CONNECTED_CAROUSEL,
+  DEFAULT_CAROUSELS,
+  mostConnectedSelection,
+} from "./carousels/defaultCarousels";
+export { computeTagScores } from "./carousels/scoreTag";

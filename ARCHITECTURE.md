@@ -3,11 +3,11 @@
 GraphSect is built around a `GraphView` abstraction. The `<GraphSect>`
 component owns the source `ExternalGraph` and the current `FilterState`. It
 applies filters once, then hands the resulting filtered graph to every active
-view. Built-in views — Filters, Tag Mesh, Plot — each render the filtered
-graph in their own way and may write back to the filter state. The Filters
-view is pinned (always active, never appears in the selector); the user
-toggles other views from a multi-select menu rendered inside the Filters bar.
-Active views stack full-width with drag-resizable heights.
+view. Built-in views — Filters, Tag Mesh, Plot, Carousels — each render the
+filtered graph in their own way and may write back to the filter state. The
+Filters view is pinned (always active, never appears in the selector); the
+user toggles other views from a multi-select menu rendered inside the Filters
+bar. Active views stack full-width with drag-resizable heights.
 
 ## Data Flow
 
@@ -35,8 +35,10 @@ ExternalGraph (source)
        ├── FiltersView (pinned) ──── writes filterState ──── (closes loop into applyFilters)
        │       │
        │       └── hosts ViewSelector via ViewSelectorContext (multi-select non-pinned views)
-       ├── TagMeshView ─── transformGraph() ──→ TagMesh2DView (SVG)
-       └── PlotGraphView ─ PlotView (Plotly) ──→ NodeDetailPanel on click
+       ├── TagMeshView ─── transformGraph() + computeTagScores() ──→ TagMesh2DView (SVG)
+       ├── PlotGraphView ─ PlotView (Plotly) ──→ NodeDetailPanel on click
+       └── CarouselsView ─ runs each Carousel.selection(sourceGraph) ──→ tag rectangles
+                                                       click → datumTags filter = {[tag]}
 ```
 
 ### 1. Input — ExternalGraph
@@ -94,12 +96,27 @@ Key files:
 ### 7. View Management
 
 `src/views/` contains the `GraphView` abstraction, the view registry, the
-top-right multi-select `ViewSelector`, and the `ResizableViewStack` that
-arranges active views top to bottom at full width with drag-resizable heights
-(clamped to each view's `minHeight`). The three built-in views — Filters,
-Tag Mesh, Plot — each implement the `GraphView` contract and re-render
-whenever the source graph or filter state changes. See
+multi-select `ViewSelector`, and the `ResizableViewStack` that arranges
+active views top to bottom at full width with drag-resizable heights
+(clamped to each view's `minHeight`). The four built-in views — Filters,
+Tag Mesh, Plot, Carousels — each implement the `GraphView` contract and
+re-render whenever the source graph or filter state changes. See
 [`src/views/README.md`](src/views/README.md) for the full contract.
+
+### 8. Carousels
+
+`src/carousels/` defines the `Carousel` interface — a `{ name, selection }`
+pair where `selection(graph) => string[]` returns the tags to render in
+order. The default `MOST_CONNECTED_CAROUSEL` sorts every tag by
+`computeTagScores(graph)`, the canonical connectedness score also consumed
+by `buildTagMeshLayout`:
+
+    score(T) = |datums(T)| + Σ deg(d) for d ∈ datums(T)
+
+`<CarouselsView>` renders each carousel as a title plus fixed-size tag
+rectangles (text scaled to fit; rows wrap once they overflow). Clicking a
+tag rewrites `filterState.datumTags` so the rest of the app sees only
+datums carrying that tag.
 
 ## Component — GraphSect
 
@@ -110,5 +127,6 @@ whenever the source graph or filter state changes. See
 | `graph` | `ExternalGraph` | Source graph data |
 | `filterCallbacks?` | `FilterCallbacks` | Override individual filter logic |
 | `customGraphFilter?` | `CustomGraphFilter` | Replace all built-in filtering |
-| `views?` | `GraphView[]` | Replace or extend the default view registry (defaults to `BUILTIN_VIEWS`) |
+| `views?` | `GraphView[]` | Replace the default view registry (defaults to `BUILTIN_VIEWS`) |
+| `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view (ignored when `views` is also passed) |
 | `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount (defaults to `["filters", "tag-mesh"]`) |

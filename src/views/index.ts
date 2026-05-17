@@ -10,5 +10,7 @@ export {
   FILTERS_VIEW,
   TAG_MESH_VIEW,
   PLOT_VIEW,
+  CAROUSELS_VIEW,
 } from "./builtinViews";
+export { createCarouselsView } from "./views/CarouselsView";
 export type { GraphView, GraphViewProps } from "./types";

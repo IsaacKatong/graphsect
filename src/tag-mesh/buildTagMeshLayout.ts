@@ -63,6 +63,7 @@ function angleDiff(a: number, b: number): number {
 export function buildTagMeshLayout(
   data: ForceGraphData,
   params: TagMeshParams,
+  scores: ReadonlyMap<string, number>,
 ): TagMeshLayout {
   const {
     mainNeighbors: X,
@@ -86,7 +87,6 @@ export function buildTagMeshLayout(
     }
   }
 
-  const datumDegree = new Map<string, number>();
   const adjacency = new Map<string, Set<string>>();
   for (const link of data.links) {
     const s =
@@ -94,22 +94,17 @@ export function buildTagMeshLayout(
     const t =
       typeof link.target === "string" ? link.target : (link as any).target?.id;
     if (!s || !t) continue;
-    datumDegree.set(s, (datumDegree.get(s) ?? 0) + 1);
-    datumDegree.set(t, (datumDegree.get(t) ?? 0) + 1);
     if (!adjacency.has(s)) adjacency.set(s, new Set());
     if (!adjacency.has(t)) adjacency.set(t, new Set());
     adjacency.get(s)!.add(t);
     adjacency.get(t)!.add(s);
   }
 
-  // Score = |datums(T)| + Σ deg(d) for d ∈ datums(T)
-  const scoreOf = (tag: string): number => {
-    const datums = tagDatums.get(tag);
-    if (!datums) return 0;
-    let s = datums.size;
-    for (const d of datums) s += datumDegree.get(d) ?? 0;
-    return s;
-  };
+  // Connectedness score is computed externally (canonical implementation in
+  // `src/carousels/scoreTag.ts`) and passed in via `scores`; tags missing from
+  // the map (e.g. tags that exist on a datum but were filtered out before the
+  // ForceGraphData was built) fall back to zero.
+  const scoreOf = (tag: string): number => scores.get(tag) ?? 0;
   const countOf = (tag: string) => tagDatums.get(tag)?.size ?? 0;
 
   // Tag-pair edge counts (shared-datum-pair edges) — symmetric.

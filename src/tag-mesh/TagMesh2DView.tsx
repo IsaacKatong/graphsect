@@ -16,6 +16,7 @@ import {
 type TagMesh2DViewProps = {
   data: ForceGraphData;
   params: TagMeshParams;
+  scores: ReadonlyMap<string, number>;
 };
 
 const PADDING = 40;
@@ -30,8 +31,15 @@ function colorForNode(role: "main" | "sub", parent: string | null): string {
   return parent === null ? COLOR_ROOT : COLOR_MAIN;
 }
 
-export default function TagMesh2DView({ data, params }: TagMesh2DViewProps) {
-  const layout = useMemo(() => buildTagMeshLayout(data, params), [data, params]);
+export default function TagMesh2DView({
+  data,
+  params,
+  scores,
+}: TagMesh2DViewProps) {
+  const layout = useMemo(
+    () => buildTagMeshLayout(data, params, scores),
+    [data, params, scores],
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });

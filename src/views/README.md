@@ -50,6 +50,11 @@ state to worry about.
   Reads both the `sourceGraph` (for picking dimensions) and the filtered
   `graph` (for what to plot). Also hosts the `NodeDetailPanel` for the nodes
   it makes clickable.
+- `CAROUSELS_VIEW` — renders one section per `Carousel` (see
+  [`src/carousels/`](../carousels/README.md)) with click-to-filter tag
+  rectangles. Built via `createCarouselsView(carousels?)` so clients can
+  supply their own carousel list via the `carousels` prop on `<GraphSect>`
+  without replacing the rest of the registry.
 
 All three are exported from `builtinViews.ts` and are the default contents of
 the `views` prop on `<GraphSect>`.

@@ -8,15 +8,22 @@ import {
 } from "./filtering/types";
 import { applyFilters } from "./filtering/applyFilters";
 import ViewManager from "./views/ViewManager";
-import { BUILTIN_VIEWS, FILTERS_VIEW } from "./views/builtinViews";
+import {
+  BUILTIN_VIEWS,
+  CAROUSELS_VIEW,
+  FILTERS_VIEW,
+} from "./views/builtinViews";
+import { createCarouselsView } from "./views/views/CarouselsView";
 import { GraphView } from "./views/types";
 import { ViewSelectorProvider } from "./views/ViewSelectorContext";
+import { Carousel } from "./carousels/types";
 
 type GraphSectProps = {
   graph: ExternalGraph;
   filterCallbacks?: FilterCallbacks;
   customGraphFilter?: CustomGraphFilter;
   views?: GraphView[];
+  carousels?: Carousel[];
   defaultActiveViewIds?: string[];
 };
 
@@ -31,7 +38,8 @@ function GraphSect({
   graph,
   filterCallbacks,
   customGraphFilter,
-  views = BUILTIN_VIEWS,
+  views,
+  carousels,
   defaultActiveViewIds = DEFAULT_ACTIVE_VIEW_IDS,
 }: GraphSectProps) {
   const [filterState, setFilterState] =
@@ -45,6 +53,18 @@ function GraphSect({
     [],
   );
 
+  // If the caller passed a `views` array, use it verbatim. Otherwise use the
+  // built-in registry, swapping in a freshly-built carousels view when the
+  // caller has supplied custom carousels.
+  const effectiveViews = useMemo<GraphView[]>(() => {
+    if (views) return views;
+    if (!carousels) return BUILTIN_VIEWS;
+    const customCarouselsView = createCarouselsView(carousels);
+    return BUILTIN_VIEWS.map((v) =>
+      v.id === CAROUSELS_VIEW.id ? customCarouselsView : v,
+    );
+  }, [views, carousels]);
+
   const filteredGraph = useMemo(() => {
     if (customGraphFilter) return customGraphFilter(graph);
     return applyFilters(graph, filterState, filterCallbacks);
@@ -56,8 +76,8 @@ function GraphSect({
   // selector's badge counts only togglable views (the pinned wrapper
   // `setActiveViewIds` re-adds the pin on emit).
   const selectableViews = useMemo(
-    () => views.filter((v) => v.id !== PINNED_VIEW_ID),
-    [views],
+    () => effectiveViews.filter((v) => v.id !== PINNED_VIEW_ID),
+    [effectiveViews],
   );
   const selectableActiveIds = useMemo(
     () => activeViewIds.filter((id) => id !== PINNED_VIEW_ID),
@@ -74,7 +94,7 @@ function GraphSect({
         }}
       >
         <ViewManager
-          views={views}
+          views={effectiveViews}
           activeIds={activeViewIds}
           sourceGraph={graph}
           filteredGraph={filteredGraph}
