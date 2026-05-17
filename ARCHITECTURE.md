@@ -1,37 +1,42 @@
 # Architecture
 
+GraphSect is built around a `GraphView` abstraction. The `<GraphSect>`
+component owns the source `ExternalGraph` and the current `FilterState`. It
+applies filters once, then hands the resulting filtered graph to every active
+view. Built-in views — Filters, Tag Mesh, Plot — each render the filtered
+graph in their own way and may write back to the filter state. The Filters
+view is pinned (always active, never appears in the selector); the user
+toggles other views from a multi-select menu rendered inside the Filters bar.
+Active views stack full-width with drag-resizable heights.
+
 ## Data Flow
 
 ```
 ExternalGraph (source)
        │
-       ├── customGraphFilter? ── YES ──→ customGraphFilter(graph) ──┐
+       ├── customGraphFilter? ─ YES ──→ customGraphFilter(graph) ──┐
        │                                                            │
        NO                                                           │
        │                                                            │
        ▼                                                            │
-  FilterPanel (user selects filters)                                │
-       │                                                            │
-       ▼                                                            │
-  applyFilters(graph, filterState, filterCallbacks?)                │
+  applyFilters(graph, filterState, filterCallbacks?)               │
        │                                                            │
        ▼                                                            ▼
-  ExternalGraph (filtered) ◄────────────────────────────────────────┘
+  ExternalGraph (filtered) ────────────────────────────────────────┘
        │
        ▼
-  transformGraph()
+  ViewManager  (activeIds always include the pinned Filters view)
+       │
+       ├── for each active view ──→ ResizableViewStack
        │
        ▼
-  ForceGraphData { nodes, links }
+  view.Component({ sourceGraph, graph, filterState, onFilterStateChange })
        │
-       ▼
-  TagMesh2DView (SVG, greedy tag layout)
-       │
-       ▼
-  User clicks node (via PlotView)
-       │
-       ▼
-  NodeDetailPanel
+       ├── FiltersView (pinned) ──── writes filterState ──── (closes loop into applyFilters)
+       │       │
+       │       └── hosts ViewSelector via ViewSelectorContext (multi-select non-pinned views)
+       ├── TagMeshView ─── transformGraph() ──→ TagMesh2DView (SVG)
+       └── PlotGraphView ─ PlotView (Plotly) ──→ NodeDetailPanel on click
 ```
 
 ### 1. Input — ExternalGraph
@@ -53,7 +58,7 @@ The application consumes an `ExternalGraph` JSON file, the data format used by t
 
 **Mode B — Callback overrides:** Clients pass a `filterCallbacks` prop containing custom implementations for any subset of filters. The `applyFilters()` orchestrator checks for a callback before falling back to the default. Each callback has the signature `(graph: ExternalGraph, filter: T) => ExternalGraph`, where `T` is the filter-specific value type.
 
-**Mode C — Full override:** Clients pass a `customGraphFilter` callback that receives the source graph and returns the graph to render. This bypasses all built-in filter logic and hides the default filter panel.
+**Mode C — Full override:** Clients pass a `customGraphFilter` callback that receives the source graph and returns the graph to render. This bypasses all built-in filter logic; the filters view, if active, still renders but its filter state is ignored.
 
 Key files:
 - `src/filtering/types.ts` — Filter value types (`DatumTypeFilter`, `DatumTagsFilter`, etc.), `FilterState`, `FilterCallbacks`, `CustomGraphFilter`
@@ -84,7 +89,17 @@ Key files:
 
 ### 6. Inspect — NodeDetailPanel
 
-`src/graph-view/NodeDetailPanel.tsx` displays when a user clicks a node. It shows the node's name, type, tags, dimensions, and full content in a slide-out side panel.
+`src/graph-view/NodeDetailPanel.tsx` displays when a user clicks a node in the plot view. It shows the node's name, type, tags, dimensions, and full content in a slide-out side panel.
+
+### 7. View Management
+
+`src/views/` contains the `GraphView` abstraction, the view registry, the
+top-right multi-select `ViewSelector`, and the `ResizableViewStack` that
+arranges active views top to bottom at full width with drag-resizable heights
+(clamped to each view's `minHeight`). The three built-in views — Filters,
+Tag Mesh, Plot — each implement the `GraphView` contract and re-render
+whenever the source graph or filter state changes. See
+[`src/views/README.md`](src/views/README.md) for the full contract.
 
 ## Component — GraphSect
 
@@ -95,4 +110,5 @@ Key files:
 | `graph` | `ExternalGraph` | Source graph data |
 | `filterCallbacks?` | `FilterCallbacks` | Override individual filter logic |
 | `customGraphFilter?` | `CustomGraphFilter` | Replace all built-in filtering |
-| `hideDefaultFilters?` | `boolean` | Hide default filter panel |
+| `views?` | `GraphView[]` | Replace or extend the default view registry (defaults to `BUILTIN_VIEWS`) |
+| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount (defaults to `["filters", "tag-mesh"]`) |

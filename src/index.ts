@@ -13,3 +13,10 @@ export type {
   ConnectedDatumsFilter,
   DimensionValuesFilter,
 } from "./filtering/types";
+export type { GraphView, GraphViewProps } from "./views/types";
+export {
+  BUILTIN_VIEWS,
+  FILTERS_VIEW,
+  TAG_MESH_VIEW,
+  PLOT_VIEW,
+} from "./views/builtinViews";

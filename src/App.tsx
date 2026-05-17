@@ -1,173 +1,99 @@
-import { useState, useMemo } from "react";
-import TagMesh2DView from "./tag-mesh/TagMesh2DView";
-import TagMeshControls from "./tag-mesh/TagMeshControls";
-import NodeDetailPanel from "./graph-view/NodeDetailPanel";
-import FilterPanel from "./filter-panel/FilterPanel";
-import PlotView from "./plotting/PlotView";
-import DimensionSelector from "./plotting/DimensionSelector";
-import { useDimensionSelection } from "./plotting/useDimensionSelection";
-import {
-  transformGraph,
-  ForceGraphNode,
-} from "./external-graph/transformGraph";
+import { useCallback, useMemo, useState } from "react";
 import { ExternalGraph } from "./external-graph/types";
 import {
   FilterCallbacks,
   CustomGraphFilter,
+  FilterState,
+  EMPTY_FILTER_STATE,
 } from "./filtering/types";
-import { useFilterState } from "./filtering/useFilterState";
 import { applyFilters } from "./filtering/applyFilters";
-import { TagMeshParams } from "./tag-mesh/buildTagMeshLayout";
+import ViewManager from "./views/ViewManager";
+import { BUILTIN_VIEWS, FILTERS_VIEW } from "./views/builtinViews";
+import { GraphView } from "./views/types";
+import { ViewSelectorProvider } from "./views/ViewSelectorContext";
 
 type GraphSectProps = {
   graph: ExternalGraph;
   filterCallbacks?: FilterCallbacks;
   customGraphFilter?: CustomGraphFilter;
-  hideDefaultFilters?: boolean;
-  hideDefaultDimensionSelector?: boolean;
-  onDimensionsChange?: (dimensions: string[]) => void;
-  selectedDimensions?: string[];
+  views?: GraphView[];
+  defaultActiveViewIds?: string[];
 };
 
-const DEFAULT_PARAMS: TagMeshParams = {
-  mainNeighbors: 6,
-  subNeighbors: 12,
-  sizeScale: 10,
-  distance: 40,
-  hierarchyDistance: 100,
-};
+const PINNED_VIEW_ID = FILTERS_VIEW.id;
+const DEFAULT_ACTIVE_VIEW_IDS = [PINNED_VIEW_ID, "tag-mesh"];
+
+function ensurePinned(ids: string[]): string[] {
+  return ids.includes(PINNED_VIEW_ID) ? ids : [PINNED_VIEW_ID, ...ids];
+}
 
 function GraphSect({
   graph,
   filterCallbacks,
   customGraphFilter,
-  hideDefaultFilters,
-  hideDefaultDimensionSelector,
-  onDimensionsChange,
-  selectedDimensions: controlledDimensions,
+  views = BUILTIN_VIEWS,
+  defaultActiveViewIds = DEFAULT_ACTIVE_VIEW_IDS,
 }: GraphSectProps) {
-  const [selectedNode, setSelectedNode] = useState<ForceGraphNode | null>(null);
-  const [showEdges, setShowEdges] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"plot" | null>(null);
-  const [meshParams, setMeshParams] = useState<TagMeshParams>(DEFAULT_PARAMS);
+  const [filterState, setFilterState] =
+    useState<FilterState>(EMPTY_FILTER_STATE);
+  const [activeViewIds, setActiveViewIdsRaw] = useState<string[]>(() =>
+    ensurePinned(defaultActiveViewIds),
+  );
 
-  const { filterState, setFilter, clearAllFilters } = useFilterState();
-  const internal = useDimensionSelection();
-
-  const isControlled = controlledDimensions !== undefined;
-  const activeDimensions = isControlled
-    ? controlledDimensions
-    : internal.selectedDimensions;
-
-  function handleDimensionsChange(dimensions: string[]) {
-    if (isControlled) {
-      onDimensionsChange?.(dimensions);
-    } else {
-      internal.setDimensions(dimensions);
-      onDimensionsChange?.(dimensions);
-    }
-  }
+  const setActiveViewIds = useCallback(
+    (next: string[]) => setActiveViewIdsRaw(ensurePinned(next)),
+    [],
+  );
 
   const filteredGraph = useMemo(() => {
-    if (customGraphFilter) {
-      return customGraphFilter(graph);
-    }
+    if (customGraphFilter) return customGraphFilter(graph);
     return applyFilters(graph, filterState, filterCallbacks);
   }, [graph, filterState, filterCallbacks, customGraphFilter]);
 
-  const graphData = useMemo(
-    () => transformGraph(filteredGraph),
-    [filteredGraph],
+  // The Views selector lives inside the pinned Filters view; only non-pinned
+  // views appear in its dropdown so the pinned view can't be toggled off.
+  // We also strip the pinned id from activeIds before exposing it so the
+  // selector's badge counts only togglable views (the pinned wrapper
+  // `setActiveViewIds` re-adds the pin on emit).
+  const selectableViews = useMemo(
+    () => views.filter((v) => v.id !== PINNED_VIEW_ID),
+    [views],
+  );
+  const selectableActiveIds = useMemo(
+    () => activeViewIds.filter((id) => id !== PINNED_VIEW_ID),
+    [activeViewIds],
   );
 
-  const showFilters = !hideDefaultFilters && !customGraphFilter;
-  const showDimensionSelector = !hideDefaultDimensionSelector;
-  const showPlot = activeDimensions.length > 0;
-
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        backgroundColor: "#0f172a",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: showPlot ? "none" : "block",
+    <div style={rootStyle}>
+      <ViewSelectorProvider
+        value={{
+          views: selectableViews,
+          activeIds: selectableActiveIds,
+          onActiveIdsChange: setActiveViewIds,
         }}
       >
-        <TagMesh2DView data={graphData} params={meshParams} />
-      </div>
-      {showPlot && (
-        <PlotView
-          graph={filteredGraph}
-          dimensions={activeDimensions}
-          showEdges={showEdges}
-          onNodeClick={(datumId) => {
-            const node = graphData.nodes.find((n) => n.id === datumId);
-            if (node) setSelectedNode(node);
-          }}
+        <ViewManager
+          views={views}
+          activeIds={activeViewIds}
+          sourceGraph={graph}
+          filteredGraph={filteredGraph}
+          filterState={filterState}
+          onFilterStateChange={setFilterState}
         />
-      )}
-      {(showFilters || showDimensionSelector) && (
-        <div style={toolbarStyle}>
-          {showFilters ? (
-            <FilterPanel
-              sourceGraph={graph}
-              filterState={filterState}
-              onFilterChange={setFilter}
-              onClearAll={clearAllFilters}
-            />
-          ) : (
-            <div />
-          )}
-          <div style={rightToolbarStyle}>
-            {showDimensionSelector && (
-              <DimensionSelector
-                graph={graph}
-                selected={activeDimensions}
-                onSelectionChange={handleDimensionsChange}
-                showEdges={showEdges}
-                onShowEdgesChange={setShowEdges}
-                open={openDropdown === "plot"}
-                onOpenChange={(o) => setOpenDropdown(o ? "plot" : null)}
-              />
-            )}
-          </div>
-        </div>
-      )}
-      {!showPlot && (
-        <TagMeshControls params={meshParams} onChange={setMeshParams} />
-      )}
-      <NodeDetailPanel
-        node={selectedNode}
-        onClose={() => setSelectedNode(null)}
-      />
+      </ViewSelectorProvider>
     </div>
   );
 }
 
-const toolbarStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "12px",
-  left: "12px",
-  right: "12px",
+const rootStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  zIndex: 50,
-  pointerEvents: "none",
-};
-
-const rightToolbarStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  alignItems: "flex-start",
-  pointerEvents: "auto",
+  flexDirection: "column",
+  backgroundColor: "#0f172a",
+  position: "relative",
+  minHeight: 0,
 };
 
 export { GraphSect as default, type GraphSectProps };
