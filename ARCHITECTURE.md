@@ -108,10 +108,10 @@ when a filter would otherwise drop it from the post-filter graph.
 `src/views/` contains the `GraphView` abstraction, the view registry, the
 multi-select `ViewSelector`, and the `ResizableViewStack` that arranges
 active views top to bottom at full width with drag-resizable heights
-(clamped to each view's `minHeight`). The four built-in views — Filters,
-Tag Mesh, Plot, Carousels — each implement the `GraphView` contract and
-re-render whenever the source graph or filter state changes. See
-[`src/views/README.md`](src/views/README.md) for the full contract.
+(clamped to each view's `minHeight`). The five built-in views — Filters,
+Tag Mesh, Plot, Carousels, Datum List — each implement the `GraphView`
+contract and re-render whenever the source graph or filter state changes.
+See [`src/views/README.md`](src/views/README.md) for the full contract.
 
 ### 8. Carousels
 

@@ -61,9 +61,12 @@ clickable datums can simply ignore the prop.
   rectangles. Built via `createCarouselsView(carousels?)` so clients can
   supply their own carousel list via the `carousels` prop on `<GraphSect>`
   without replacing the rest of the registry.
+- `DATUM_LIST_VIEW` — a scrollable list of every datum in the post-filter
+  graph, in a stable-per-mount random order. Clicking a row sets the global
+  `selectedDatumId`; the selected row is highlighted.
 
-All three are exported from `builtinViews.ts` and are the default contents of
-the `views` prop on `<GraphSect>`.
+All are exported from `builtinViews.ts` and are the default contents of the
+`views` prop on `<GraphSect>`.
 
 ## ViewSelector
 
