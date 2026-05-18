@@ -51,6 +51,9 @@ export default function DimensionRangeFilter({
   }, [open]);
 
   const activeCount = filter?.ranges.length ?? 0;
+  // Disable the button when there's literally nothing to do — no available
+  // dimensions to pick from and no active range to clear.
+  const disabled = displayDimensions.length === 0;
 
   function updateRange(
     dimensionName: string,
@@ -99,15 +102,17 @@ export default function DimensionRangeFilter({
     <div ref={containerRef} style={containerStyle}>
       <button
         onClick={() => setOpen(!open)}
+        disabled={disabled}
         style={{
           ...buttonStyle,
           ...(activeCount > 0 ? activeButtonStyle : {}),
+          ...(disabled ? disabledButtonStyle : {}),
         }}
       >
         Dimensions
         {activeCount > 0 && <span style={badgeStyle}>{activeCount}</span>}
       </button>
-      {open && displayDimensions.length > 0 && (
+      {open && !disabled && (
         <div style={dropdownStyle}>
           {displayDimensions.map((dim) => {
             const range = getRange(dim.name);
@@ -192,6 +197,11 @@ const buttonStyle: React.CSSProperties = {
 const activeButtonStyle: React.CSSProperties = {
   backgroundColor: "#4f46e5",
   borderColor: "#6366f1",
+};
+
+const disabledButtonStyle: React.CSSProperties = {
+  opacity: 0.4,
+  cursor: "not-allowed",
 };
 
 const badgeStyle: React.CSSProperties = {

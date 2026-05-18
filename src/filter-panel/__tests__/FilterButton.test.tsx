@@ -63,4 +63,30 @@ describe("FilterButton dropdown contents", () => {
     fireEvent.click(screen.getByText(/Edges/));
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
+
+  it("disables the button when there is nothing to pick and nothing selected", () => {
+    render(
+      <FilterButton
+        label="Edges"
+        options={[]}
+        selected={[]}
+        onSelectionChange={() => {}}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /Edges/ }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("stays enabled when there is no option to pick but a ghost selection still needs un-checking", () => {
+    render(
+      <FilterButton
+        label="Edges"
+        options={[]}
+        selected={["A->B"]}
+        onSelectionChange={() => {}}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /Edges/ }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
 });

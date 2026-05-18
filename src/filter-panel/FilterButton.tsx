@@ -48,6 +48,11 @@ export default function FilterButton({
   }, [options, selected]);
 
   const activeCount = selected.length;
+  // Disable the button when there's literally nothing to do — no available
+  // options to pick from and no active selection to clear. Showing the
+  // button as a dead chip is more honest than letting the user open an
+  // empty dropdown.
+  const disabled = displayOptions.length === 0;
 
   function toggleOption(option: string) {
     if (selected.includes(option)) {
@@ -61,15 +66,17 @@ export default function FilterButton({
     <div ref={containerRef} style={containerStyle}>
       <button
         onClick={() => setOpen(!open)}
+        disabled={disabled}
         style={{
           ...buttonStyle,
           ...(activeCount > 0 ? activeButtonStyle : {}),
+          ...(disabled ? disabledButtonStyle : {}),
         }}
       >
         {label}
         {activeCount > 0 && <span style={badgeStyle}>{activeCount}</span>}
       </button>
-      {open && displayOptions.length > 0 && (
+      {open && !disabled && (
         <div style={dropdownStyle}>
           {displayOptions.map((option) => (
             <label key={option} style={optionStyle}>
@@ -110,6 +117,11 @@ const buttonStyle: React.CSSProperties = {
 const activeButtonStyle: React.CSSProperties = {
   backgroundColor: "#4f46e5",
   borderColor: "#6366f1",
+};
+
+const disabledButtonStyle: React.CSSProperties = {
+  opacity: 0.4,
+  cursor: "not-allowed",
 };
 
 const badgeStyle: React.CSSProperties = {
