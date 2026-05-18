@@ -1,18 +1,11 @@
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useMemo, type CSSProperties } from "react";
 import { Carousel } from "../../carousels/types";
 import { DEFAULT_CAROUSELS } from "../../carousels/defaultCarousels";
 import { GraphView, GraphViewProps } from "../types";
 
-const TAG_WIDTH = 110;
 const TAG_HEIGHT = 36;
 const TAG_GAP = 8;
-const TAG_PAD_X = 10;
+const TAG_PAD_X = 12;
 const TAG_PAD_Y = 4;
 const BASE_FONT = 14;
 
@@ -88,25 +81,9 @@ type CarouselTagProps = {
 };
 
 function CarouselTag({ tag, selected, onClick }: CarouselTagProps) {
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [scale, setScale] = useState(1);
-
-  // After mount, measure the natural text size against the rectangle's
-  // available area and scale down (never up) so the tag fits. The rectangle
-  // itself is a fixed pixel size, so this only runs when the tag changes.
-  useLayoutEffect(() => {
-    const el = textRef.current;
-    if (!el) return;
-    el.style.transform = "scale(1)";
-    const naturalW = el.scrollWidth;
-    const naturalH = el.scrollHeight;
-    if (naturalW <= 0 || naturalH <= 0) return;
-    const availW = TAG_WIDTH - TAG_PAD_X * 2;
-    const availH = TAG_HEIGHT - TAG_PAD_Y * 2;
-    const s = Math.min(1, availW / naturalW, availH / naturalH);
-    setScale(s);
-  }, [tag]);
-
+  // The box sizes to its text content (auto width, fixed height, padded).
+  // `whiteSpace: "nowrap"` keeps each tag on a single line and the parent's
+  // `flex-wrap: wrap` pushes overflowing tiles to the next row.
   return (
     <button
       onClick={onClick}
@@ -116,15 +93,7 @@ function CarouselTag({ tag, selected, onClick }: CarouselTagProps) {
       }}
       title={tag}
     >
-      <span
-        ref={textRef}
-        style={{
-          ...tagTextStyle,
-          transform: `scale(${scale})`,
-        }}
-      >
-        {tag}
-      </span>
+      {tag}
     </button>
   );
 }
@@ -186,10 +155,9 @@ const tagsRowStyle: CSSProperties = {
 };
 
 const tagBoxStyle: CSSProperties = {
-  width: TAG_WIDTH,
   height: TAG_HEIGHT,
   padding: `${TAG_PAD_Y}px ${TAG_PAD_X}px`,
-  display: "flex",
+  display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   background: "#1e293b",
@@ -200,7 +168,9 @@ const tagBoxStyle: CSSProperties = {
   borderRadius: 6,
   cursor: "pointer",
   fontFamily: "system-ui, sans-serif",
-  overflow: "hidden",
+  fontSize: BASE_FONT,
+  lineHeight: 1.1,
+  whiteSpace: "nowrap",
   boxSizing: "border-box",
 };
 
@@ -208,15 +178,6 @@ const selectedTagBoxStyle: CSSProperties = {
   background: "#4f46e5",
   borderColor: "#6366f1",
   color: "#ffffff",
-};
-
-const tagTextStyle: CSSProperties = {
-  display: "inline-block",
-  whiteSpace: "nowrap",
-  fontSize: BASE_FONT,
-  lineHeight: 1.1,
-  transformOrigin: "center center",
-  pointerEvents: "none",
 };
 
 export default CarouselsView;
