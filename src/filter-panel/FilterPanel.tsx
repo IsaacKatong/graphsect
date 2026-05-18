@@ -5,7 +5,12 @@ import FilterButton from "./FilterButton";
 import DimensionRangeFilter from "./DimensionRangeFilter";
 
 type FilterPanelProps = {
-  sourceGraph: ExternalGraph;
+  // The graph the dropdowns enumerate options from. Callers pass the
+  // *post-filter* graph so each dropdown only shows options that are still
+  // present once every active filter has been applied — adding any filter
+  // immediately narrows the rest. Cleared filters expand the options back
+  // out because the filter pipeline returns the unfiltered graph.
+  graph: ExternalGraph;
   filterState: FilterState;
   onFilterChange: <K extends keyof FilterState>(
     key: K,
@@ -15,12 +20,12 @@ type FilterPanelProps = {
 };
 
 export default function FilterPanel({
-  sourceGraph,
+  graph,
   filterState,
   onFilterChange,
   onClearAll,
 }: FilterPanelProps) {
-  const options = useMemo(() => extractFilterOptions(sourceGraph), [sourceGraph]);
+  const options = useMemo(() => extractFilterOptions(graph), [graph]);
 
   const hasActiveFilters = Object.values(filterState).some((v) => v !== null);
 

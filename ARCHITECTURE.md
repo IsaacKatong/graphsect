@@ -84,7 +84,7 @@ Key files:
 
 ### 5. Filter UI — FilterPanel
 
-`src/filter-panel/FilterPanel.tsx` renders the default filter buttons overlaid on the graph. It extracts available filter options from the source ExternalGraph (unique types, tags, edge IDs, dimensions with min/max ranges). Each filter button opens a multi-select dropdown. The dimension filter provides min/max range inputs.
+`src/filter-panel/FilterPanel.tsx` renders the default filter buttons. It extracts available filter options (unique types, tags, edge IDs, dimensions with min/max ranges) from the **post-filter** graph that the FiltersView hands to it — not from the source. Because every active view re-renders whenever `filterState` changes (the `<GraphSect>`-level lifecycle), the dropdown options automatically narrow as filters are added and widen as filters are cleared, regardless of which source (the panel itself, the Carousels view, a custom view) flipped the state.
 
 Key files:
 - `src/filter-panel/FilterPanel.tsx` — Assembles all filter buttons, extracts options from source graph

@@ -5,7 +5,7 @@ import ViewSelector from "../ViewSelector";
 import { useViewSelector } from "../ViewSelectorContext";
 
 export default function FiltersView({
-  sourceGraph,
+  graph,
   filterState,
   onFilterStateChange,
 }: GraphViewProps) {
@@ -25,7 +25,7 @@ export default function FiltersView({
   return (
     <div style={panelStyle}>
       <FilterPanel
-        sourceGraph={sourceGraph}
+        graph={graph}
         filterState={filterState}
         onFilterChange={setFilter}
         onClearAll={clearAll}
