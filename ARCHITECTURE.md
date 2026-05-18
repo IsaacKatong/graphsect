@@ -66,8 +66,8 @@ The application consumes an `ExternalGraph` JSON file, the data format used by t
 
 Key files:
 - `src/filtering/types.ts` — Filter value types (`DatumTypeFilter`, `DatumTagsFilter`, etc.), `FilterState`, `FilterCallbacks`, `CustomGraphFilter`
-- `src/filtering/defaultFilters.ts` — One pure function per filter kind, plus helpers for pruning orphaned edges/datums
-- `src/filtering/applyFilters.ts` — Orchestrator that iterates `FilterState`, dispatching to callbacks or defaults
+- `src/filtering/defaultFilters.ts` — One pure function per filter kind, each narrowing only its primary scope (datums OR edges + endpoints), plus `makeConsistent` for cross-table cleanup
+- `src/filtering/applyFilters.ts` — Orchestrator that iterates `FilterState`, dispatching to callbacks or defaults, then runs `makeConsistent` once at the end so dangling references produced by any filter order are reconciled in one place
 - `src/filtering/useFilterState.ts` — React hook managing `FilterState` with `setFilter`, `clearFilter`, `clearAllFilters`
 
 ### 3. Transform — transformGraph()

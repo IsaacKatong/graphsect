@@ -8,18 +8,35 @@ import {
   DimensionValuesFilter,
 } from "./types";
 
-function pruneDanglingForDatums(graph: ExternalGraph): ExternalGraph {
+function edgeID(e: { fromDatumID: string; toDatumID: string }): string {
+  return `${e.fromDatumID}->${e.toDatumID}`;
+}
+
+function endpointSet(
+  edges: Iterable<{ fromDatumID: string; toDatumID: string }>,
+): Set<string> {
+  const out = new Set<string>();
+  for (const e of edges) {
+    out.add(e.fromDatumID);
+    out.add(e.toDatumID);
+  }
+  return out;
+}
+
+/**
+ * Drop edges that reference a datum no longer present, and prune every
+ * datum-scoped or edge-scoped metadata table down to what's still
+ * referenced. Each individual filter narrows only its primary scope (datums
+ * or edges) and leaves the rest untouched; `applyFilters` calls this once
+ * at the end of the pipeline so cross-table consistency is handled in one
+ * place, regardless of filter order or which subset of filters was active.
+ */
+export function makeConsistent(graph: ExternalGraph): ExternalGraph {
   const datumIDs = new Set(graph.datums.map((d) => d.id));
   const edges = graph.edges.filter(
     (e) => datumIDs.has(e.fromDatumID) && datumIDs.has(e.toDatumID),
   );
-  const edgeIDSet = new Set(
-    edges.map((e) => `${e.fromDatumID}->${e.toDatumID}`),
-  );
-  // Datum-scoped tables (tags, dimensions, tag associations) came from the
-  // pre-filter graph and may still reference datums that were dropped, so
-  // prune them to match the current `datums` set. Callers shrink `datums`
-  // and expect a fully-consistent graph back from this helper.
+  const edgeIDSet = new Set(edges.map(edgeID));
   const datumTags = graph.datumTags.filter((t) => datumIDs.has(t.datumID));
   const survivingTagNames = new Set(datumTags.map((t) => t.name));
   return {
@@ -38,41 +55,16 @@ function pruneDanglingForDatums(graph: ExternalGraph): ExternalGraph {
   };
 }
 
-function pruneOrphanedDatums(graph: ExternalGraph): ExternalGraph {
-  const connectedDatumIDs = new Set<string>();
-  for (const edge of graph.edges) {
-    connectedDatumIDs.add(edge.fromDatumID);
-    connectedDatumIDs.add(edge.toDatumID);
-  }
-  const datums = graph.datums.filter((d) => connectedDatumIDs.has(d.id));
-  const datumIDSet = new Set(datums.map((d) => d.id));
-  return {
-    ...graph,
-    datums,
-    datumTags: graph.datumTags.filter((t) => datumIDSet.has(t.datumID)),
-    datumDimensions: graph.datumDimensions.filter((d) =>
-      datumIDSet.has(d.datumID),
-    ),
-    datumTagAssociations: graph.datumTagAssociations.filter(
-      (a) =>
-        graph.datumTags.some(
-          (t) => t.name === a.childTagName && datumIDSet.has(t.datumID),
-        ) ||
-        graph.datumTags.some(
-          (t) => t.name === a.parentTagName && datumIDSet.has(t.datumID),
-        ),
-    ),
-  };
-}
-
 export function filterByDatumType(
   graph: ExternalGraph,
   filter: DatumTypeFilter,
 ): ExternalGraph {
   if (filter.selectedTypes.length === 0) return graph;
   const typeSet = new Set(filter.selectedTypes);
-  const datums = graph.datums.filter((d) => typeSet.has(d.type));
-  return pruneDanglingForDatums({ ...graph, datums });
+  return {
+    ...graph,
+    datums: graph.datums.filter((d) => typeSet.has(d.type)),
+  };
 }
 
 export function filterByDatumTags(
@@ -84,8 +76,10 @@ export function filterByDatumTags(
   const matchingDatumIDs = new Set(
     graph.datumTags.filter((t) => tagSet.has(t.name)).map((t) => t.datumID),
   );
-  const datums = graph.datums.filter((d) => matchingDatumIDs.has(d.id));
-  return pruneDanglingForDatums({ ...graph, datums });
+  return {
+    ...graph,
+    datums: graph.datums.filter((d) => matchingDatumIDs.has(d.id)),
+  };
 }
 
 export function filterByConnectedEdges(
@@ -94,27 +88,16 @@ export function filterByConnectedEdges(
 ): ExternalGraph {
   if (filter.selectedEdgeIDs.length === 0) return graph;
   const edgeIDSet = new Set(filter.selectedEdgeIDs);
-  const edges = graph.edges.filter((e) =>
-    edgeIDSet.has(`${e.fromDatumID}->${e.toDatumID}`),
-  );
-  const connectedDatumIDs = new Set<string>();
-  for (const edge of edges) {
-    connectedDatumIDs.add(edge.fromDatumID);
-    connectedDatumIDs.add(edge.toDatumID);
-  }
-  const datums = graph.datums.filter((d) => connectedDatumIDs.has(d.id));
-  const edgeIDSetFinal = new Set(
-    edges.map((e) => `${e.fromDatumID}->${e.toDatumID}`),
-  );
+  // Narrow edges to the user's selection AND narrow datums to the endpoints
+  // of those edges — the second step is part of this filter's intent
+  // ("only show datums on these edges"), and intersects with any other
+  // datum-narrowing filter the pipeline applies.
+  const edges = graph.edges.filter((e) => edgeIDSet.has(edgeID(e)));
+  const endpoints = endpointSet(edges);
   return {
     ...graph,
-    datums,
     edges,
-    datumTags: graph.datumTags.filter((t) => connectedDatumIDs.has(t.datumID)),
-    datumDimensions: graph.datumDimensions.filter((d) =>
-      connectedDatumIDs.has(d.datumID),
-    ),
-    edgeTags: graph.edgeTags.filter((t) => edgeIDSetFinal.has(t.edgeID)),
+    datums: graph.datums.filter((d) => endpoints.has(d.id)),
   };
 }
 
@@ -127,10 +110,13 @@ export function filterByEdgeTags(
   const matchingEdgeIDs = new Set(
     graph.edgeTags.filter((t) => tagSet.has(t.name)).map((t) => t.edgeID),
   );
-  const edges = graph.edges.filter((e) =>
-    matchingEdgeIDs.has(`${e.fromDatumID}->${e.toDatumID}`),
-  );
-  return pruneOrphanedDatums({ ...graph, edges });
+  const edges = graph.edges.filter((e) => matchingEdgeIDs.has(edgeID(e)));
+  const endpoints = endpointSet(edges);
+  return {
+    ...graph,
+    edges,
+    datums: graph.datums.filter((d) => endpoints.has(d.id)),
+  };
 }
 
 export function filterByConnectedDatums(
@@ -139,22 +125,9 @@ export function filterByConnectedDatums(
 ): ExternalGraph {
   if (filter.selectedDatumIDs.length === 0) return graph;
   const datumIDSet = new Set(filter.selectedDatumIDs);
-  const datums = graph.datums.filter((d) => datumIDSet.has(d.id));
-  const edges = graph.edges.filter(
-    (e) => datumIDSet.has(e.fromDatumID) && datumIDSet.has(e.toDatumID),
-  );
-  const edgeIDSet = new Set(
-    edges.map((e) => `${e.fromDatumID}->${e.toDatumID}`),
-  );
   return {
     ...graph,
-    datums,
-    edges,
-    datumTags: graph.datumTags.filter((t) => datumIDSet.has(t.datumID)),
-    datumDimensions: graph.datumDimensions.filter((d) =>
-      datumIDSet.has(d.datumID),
-    ),
-    edgeTags: graph.edgeTags.filter((t) => edgeIDSet.has(t.edgeID)),
+    datums: graph.datums.filter((d) => datumIDSet.has(d.id)),
   };
 }
 
@@ -180,5 +153,5 @@ export function filterByDimensionValues(
       return value >= range.min && value <= range.max;
     });
   });
-  return pruneDanglingForDatums({ ...graph, datums });
+  return { ...graph, datums };
 }
