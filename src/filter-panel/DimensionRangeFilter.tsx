@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DimensionValuesFilter } from "../filtering/types";
 
 type DimensionRangeFilterProps = {
@@ -14,6 +14,26 @@ export default function DimensionRangeFilter({
 }: DimensionRangeFilterProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Always include dimensions that are actively filtered, even when another
+  // filter has narrowed them out of the post-filter graph. Use the user's
+  // chosen min/max as the displayed limits for ghost dimensions — they can
+  // still adjust within their own bounds or uncheck the row entirely.
+  const displayDimensions = useMemo(() => {
+    const out = [...availableDimensions];
+    const seen = new Set(availableDimensions.map((d) => d.name));
+    for (const range of filter?.ranges ?? []) {
+      if (!seen.has(range.dimensionName)) {
+        out.push({
+          name: range.dimensionName,
+          min: range.min,
+          max: range.max,
+        });
+        seen.add(range.dimensionName);
+      }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }, [availableDimensions, filter]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -87,9 +107,9 @@ export default function DimensionRangeFilter({
         Dimensions
         {activeCount > 0 && <span style={badgeStyle}>{activeCount}</span>}
       </button>
-      {open && availableDimensions.length > 0 && (
+      {open && displayDimensions.length > 0 && (
         <div style={dropdownStyle}>
-          {availableDimensions.map((dim) => {
+          {displayDimensions.map((dim) => {
             const range = getRange(dim.name);
             const isActive = !!range;
             return (

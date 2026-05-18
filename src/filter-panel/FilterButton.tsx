@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type FilterButtonProps = {
   label: string;
@@ -31,6 +31,22 @@ export default function FilterButton({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  // Always include the user's current selection in the dropdown, even when
+  // another filter has narrowed it out of the post-filter graph — otherwise
+  // the user can land in a state with an active selection but no way to
+  // uncheck it (badge shows the count, dropdown shows nothing).
+  const displayOptions = useMemo(() => {
+    const out = [...options];
+    const seen = new Set(options);
+    for (const s of selected) {
+      if (!seen.has(s)) {
+        out.push(s);
+        seen.add(s);
+      }
+    }
+    return out;
+  }, [options, selected]);
+
   const activeCount = selected.length;
 
   function toggleOption(option: string) {
@@ -53,9 +69,9 @@ export default function FilterButton({
         {label}
         {activeCount > 0 && <span style={badgeStyle}>{activeCount}</span>}
       </button>
-      {open && options.length > 0 && (
+      {open && displayOptions.length > 0 && (
         <div style={dropdownStyle}>
-          {options.map((option) => (
+          {displayOptions.map((option) => (
             <label key={option} style={optionStyle}>
               <input
                 type="checkbox"
