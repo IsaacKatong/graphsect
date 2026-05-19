@@ -24,6 +24,46 @@ function renderMarkdown(content: string): {
   }
 }
 
+function resolveImageUrl(url: string): string {
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  const base = import.meta.env.BASE_URL ?? "/";
+  if (url.startsWith("/")) return url;
+  return base.endsWith("/") ? base + url : base + "/" + url;
+}
+
+function renderImageWithText(content: string): {
+  element: React.ReactNode;
+  error: string | null;
+} {
+  let parsed: { imageUrl?: unknown; text?: unknown };
+  try {
+    parsed = JSON.parse(content);
+  } catch (err) {
+    return {
+      element: <pre style={contentStyle}>{content}</pre>,
+      error: err instanceof Error ? err.message : "Invalid JSON",
+    };
+  }
+  if (typeof parsed?.imageUrl !== "string" || typeof parsed?.text !== "string") {
+    return {
+      element: <pre style={contentStyle}>{content}</pre>,
+      error: "Expected JSON with string fields 'imageUrl' and 'text'",
+    };
+  }
+  const src = resolveImageUrl(parsed.imageUrl);
+  return {
+    element: (
+      <div style={imageWithTextStyle}>
+        <img src={src} alt={parsed.imageUrl} style={imageStyle} />
+        <div style={markdownStyle}>
+          <ReactMarkdown>{parsed.text}</ReactMarkdown>
+        </div>
+      </div>
+    ),
+    error: null,
+  };
+}
+
 export default function NodeDetailPanel({
   node,
   onClose,
@@ -37,8 +77,9 @@ export default function NodeDetailPanel({
     return () => document.removeEventListener("keydown", onKey);
   }, [node, onClose]);
 
-  const markdown = useMemo(() => {
+  const rendered = useMemo(() => {
     if (node?.type === "MARKDOWN") return renderMarkdown(node.content);
+    if (node?.type === "IMAGE_WITH_TEXT") return renderImageWithText(node.content);
     return null;
   }, [node]);
 
@@ -46,9 +87,9 @@ export default function NodeDetailPanel({
 
   return (
     <div style={panelStyle}>
-      {markdown?.error && (
+      {rendered?.error && (
         <div style={errorStyle}>
-          Invalid markdown: {markdown.error}
+          {node.type === "IMAGE_WITH_TEXT" ? "Invalid content" : "Invalid markdown"}: {rendered.error}
         </div>
       )}
       <div style={headerStyle}>
@@ -89,8 +130,12 @@ export default function NodeDetailPanel({
 
       <div style={sectionStyle}>
         <span style={labelStyle}>Content</span>
-        {markdown && !markdown.error ? (
-          <div style={markdownStyle}>{markdown.element}</div>
+        {rendered && !rendered.error ? (
+          node.type === "IMAGE_WITH_TEXT" ? (
+            rendered.element
+          ) : (
+            <div style={markdownStyle}>{rendered.element}</div>
+          )
         ) : (
           <pre style={contentStyle}>{node.content}</pre>
         )}
@@ -187,6 +232,20 @@ const markdownStyle: React.CSSProperties = {
   borderRadius: "6px",
   lineHeight: 1.5,
   overflowWrap: "break-word",
+};
+
+const imageWithTextStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const imageStyle: React.CSSProperties = {
+  display: "block",
+  maxWidth: "100%",
+  height: "auto",
+  borderRadius: "6px",
+  backgroundColor: "#0f172a",
 };
 
 const errorStyle: React.CSSProperties = {

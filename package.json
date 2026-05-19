@@ -21,6 +21,7 @@
     "src",
     "examples",
     "scripts",
+    "public",
     "index.html",
     "vite.config.ts",
     "tsconfig.json",
