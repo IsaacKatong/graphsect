@@ -155,6 +155,7 @@ const panelStyle: React.CSSProperties = {
   color: "#e2e8f0",
   padding: "20px",
   overflowY: "auto",
+  overscrollBehavior: "contain",
   boxShadow: "-4px 0 12px rgba(0, 0, 0, 0.3)",
   fontFamily: "system-ui, sans-serif",
   zIndex: 200,
