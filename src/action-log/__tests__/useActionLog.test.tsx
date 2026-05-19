@@ -86,7 +86,12 @@ describe("useActionLog", () => {
       });
     });
 
-    let popped: ReturnType<typeof result.current.pop> = null;
+    // Note: no `= null` initializer — TS narrows that to the literal `null`,
+    // and since the reassignment happens inside an `act()` callback the
+    // compiler can't see it widen back, leaving `popped` as `never` after
+    // the not-null check. The definite-assignment `!` keeps the declared
+    // `Action | null` type.
+    let popped!: ReturnType<typeof result.current.pop>;
     act(() => {
       popped = result.current.pop();
     });
