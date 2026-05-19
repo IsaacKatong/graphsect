@@ -4,7 +4,14 @@ import { Action } from "./types";
 type ActionInput =
   | Omit<Extract<Action, { type: "FILTER_CHANGED" }>, "seq" | "timestamp">
   | Omit<Extract<Action, { type: "VIEWS_CHANGED" }>, "seq" | "timestamp">
-  | Omit<Extract<Action, { type: "SELECTION_CHANGED" }>, "seq" | "timestamp">;
+  | Omit<Extract<Action, { type: "SELECTION_CHANGED" }>, "seq" | "timestamp">
+  | Omit<Extract<Action, { type: "VIEW_ACTION" }>, "seq" | "timestamp">;
+
+/**
+ * Receives the `prev` value from a VIEW_ACTION when undoing. The view is
+ * responsible for applying it to its own state.
+ */
+export type ViewActionUndoer = (prev: unknown) => void;
 
 export type ActionLog = {
   record: (input: ActionInput) => void;
@@ -16,7 +23,23 @@ export type ActionLog = {
   pop: () => Action | null;
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => readonly Action[];
+  /**
+   * Register an undoer for a `(viewId, kind)` pair. Returns an unregister
+   * function. If the pair is already registered the new undoer replaces the
+   * previous one — re-mounting a view with the same id is fine.
+   */
+  registerUndoer: (
+    viewId: string,
+    kind: string,
+    undoer: ViewActionUndoer,
+  ) => () => void;
+  /** Look up an undoer by `(viewId, kind)`, or `null` if none registered. */
+  getUndoer: (viewId: string, kind: string) => ViewActionUndoer | null;
 };
+
+function undoerKey(viewId: string, kind: string): string {
+  return `${viewId}\x00${kind}`;
+}
 
 // Single chokepoint that every action-worthy state setter funnels through.
 // Stored in refs (not React state) so recording never triggers a re-render of
@@ -25,6 +48,7 @@ export function useActionLog(): ActionLog {
   const logRef = useRef<readonly Action[]>([]);
   const seqRef = useRef(0);
   const listenersRef = useRef<Set<() => void>>(new Set());
+  const undoersRef = useRef<Map<string, ViewActionUndoer>>(new Map());
 
   const record = useCallback((input: ActionInput) => {
     seqRef.current += 1;
@@ -55,8 +79,36 @@ export function useActionLog(): ActionLog {
 
   const getSnapshot = useCallback(() => logRef.current, []);
 
+  const registerUndoer = useCallback(
+    (viewId: string, kind: string, undoer: ViewActionUndoer) => {
+      const key = undoerKey(viewId, kind);
+      undoersRef.current.set(key, undoer);
+      return () => {
+        // Only delete if it's still our undoer — guards against the unmount
+        // cleanup of an older instance overwriting a freshly-mounted one.
+        if (undoersRef.current.get(key) === undoer) {
+          undoersRef.current.delete(key);
+        }
+      };
+    },
+    [],
+  );
+
+  const getUndoer = useCallback(
+    (viewId: string, kind: string) =>
+      undoersRef.current.get(undoerKey(viewId, kind)) ?? null,
+    [],
+  );
+
   return useMemo(
-    () => ({ record, pop, subscribe, getSnapshot }),
-    [record, pop, subscribe, getSnapshot],
+    () => ({
+      record,
+      pop,
+      subscribe,
+      getSnapshot,
+      registerUndoer,
+      getUndoer,
+    }),
+    [record, pop, subscribe, getSnapshot, registerUndoer, getUndoer],
   );
 }

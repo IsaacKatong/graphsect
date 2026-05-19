@@ -5,15 +5,24 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Action } from "./types";
-import { ActionLog } from "./useActionLog";
+import { ActionLog, ViewActionUndoer } from "./useActionLog";
 
-type ActionLogContextValue = Pick<ActionLog, "subscribe" | "getSnapshot"> & {
+type ActionLogContextValue = Pick<
+  ActionLog,
+  "subscribe" | "getSnapshot" | "record" | "registerUndoer"
+> & {
   /**
    * Undo the most recent action. Rewinds the corresponding state to the
    * action's recorded `prev` value and removes the action from the log.
    * Undo does not append a new action and does not fire `onAction`.
    */
   undo: () => void;
+  /**
+   * Global debounce window in milliseconds used by `useTrackedState` when
+   * `debounce: true`. Multiple sets within this window collapse into one
+   * recorded action.
+   */
+  debounceMs: number;
 };
 
 const ActionLogContext = createContext<ActionLogContextValue | null>(null);
@@ -61,3 +70,27 @@ export function useUndo(): { undo: () => void; canUndo: boolean } {
   const log = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return { undo: ctx?.undo ?? NOOP, canUndo: log.length > 0 };
 }
+
+// Internal — returns the bits `useTrackedState` needs. Falls back to safe
+// no-ops when no provider is mounted so views remain renderable standalone.
+const NOOP_REGISTER = (
+  _viewId: string,
+  _kind: string,
+  _undoer: ViewActionUndoer,
+) => () => {};
+const NOOP_RECORD = () => {};
+
+export function useActionLogInternals(): {
+  record: ActionLog["record"];
+  registerUndoer: ActionLog["registerUndoer"];
+  debounceMs: number;
+} {
+  const ctx = useContext(ActionLogContext);
+  return {
+    record: ctx?.record ?? NOOP_RECORD,
+    registerUndoer: ctx?.registerUndoer ?? NOOP_REGISTER,
+    debounceMs: ctx?.debounceMs ?? DEFAULT_DEBOUNCE_MS,
+  };
+}
+
+export const DEFAULT_DEBOUNCE_MS = 300;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useActionLog } from "../useActionLog";
 import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
@@ -105,6 +105,28 @@ describe("useActionLog", () => {
       popped = result.current.pop();
     });
     expect(popped).toBeNull();
+  });
+
+  it("undoer registry: register, lookup, unregister, replace-on-same-key", () => {
+    const { result } = renderHook(() => useActionLog());
+    const undoer1 = vi.fn();
+    const undoer2 = vi.fn();
+
+    expect(result.current.getUndoer("v", "k")).toBeNull();
+
+    const unreg1 = result.current.registerUndoer("v", "k", undoer1);
+    expect(result.current.getUndoer("v", "k")).toBe(undoer1);
+
+    // Re-registering with the same key replaces (mimics a remount).
+    const unreg2 = result.current.registerUndoer("v", "k", undoer2);
+    expect(result.current.getUndoer("v", "k")).toBe(undoer2);
+
+    // Cleanup of the OLD instance must not clobber the new registration.
+    unreg1();
+    expect(result.current.getUndoer("v", "k")).toBe(undoer2);
+
+    unreg2();
+    expect(result.current.getUndoer("v", "k")).toBeNull();
   });
 
   it("pop() notifies subscribers", () => {

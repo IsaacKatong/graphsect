@@ -102,6 +102,7 @@ You can also hide the default filter panel while still using the built-in filter
 | `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view |
 | `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount |
 | `onAction?` | `(action: Action) => void` | Receive every user action that changes filters, the active view list, or the selected datum |
+| `debounceMs?` | `number` | Window (ms) for collapsing rapid `useTrackedState` updates into one action (default: 300) |
 
 ## Action Pipeline
 
@@ -146,16 +147,57 @@ is monotonic across every action type, so the log is a single total order.
 | `FILTER_CHANGED` | `prev`, `next` (full `FilterState`), `changedKeys` (which slices flipped) |
 | `VIEWS_CHANGED` | `prev`, `next` (view-id arrays), `added`, `removed` |
 | `SELECTION_CHANGED` | `prev`, `next` (datum id or `null`) |
+| `VIEW_ACTION` | `viewId`, `kind`, `prev`, `next` — emitted by views that opt into tracking via `useTrackedState` |
+
+### Tracking view-local state
+
+State that lives inside a view (zoom, pan, sliders, scroll position, etc.) is
+fine to keep local — but if you want it to participate in the action log and
+Undo, declare it with `useTrackedState` instead of `useState`:
+
+```tsx
+import { useTrackedState } from "graphsect";
+
+function MyView() {
+  // Discrete state — every change is recorded immediately.
+  const [page, setPage] = useTrackedState<number>("my-view", "page", 1);
+
+  // Continuous state — multiple sets within `debounceMs` collapse into one
+  // action so a gesture (drag, scroll, wheel zoom) costs one undo step.
+  const [zoom, setZoom] = useTrackedState<number>(
+    "my-view",
+    "zoom",
+    1,
+    { debounce: true },
+  );
+
+  // Untracked UI state stays as plain useState.
+  const [hovered, setHovered] = useState<string | null>(null);
+}
+```
+
+The hook self-registers an undoer keyed by `(viewId, kind)`. Undo applies the
+recorded `prev` value through the hook's own setter, so the view stays in
+control of its state.
+
+**Tracking decision per piece of state:**
+
+- User-driven and meaningful to undo? → `useTrackedState`. Pick `debounce: true` for anything continuous.
+- Transient UI state (hover, drag-in-progress flag, animation frame)? → plain `useState`.
+- Application-level state (filters, active views, selected datum)? → already tracked automatically by `<GraphSect>`; views consume it through `GraphViewProps`.
 
 ### Undo
 
 `<GraphSect>` ships an **Undo** button in the filters toolbar (next to the
 Views menu). Clicking it pops the most recent action from the log and rewinds
-the corresponding state to that action's recorded `prev` value. Undo is a
-rewind, not a new action — it does **not** append to the log and does **not**
-fire `onAction`. When the log is empty the button is disabled. The undo
-handle is also available programmatically inside any view via the `useUndo()`
-hook (`{ undo, canUndo }`).
+the corresponding state to that action's recorded `prev` value — including
+view-local state registered through `useTrackedState`. Undo is a rewind, not
+a new action: it does **not** append to the log and does **not** fire
+`onAction`. When the log is empty the button is disabled. The undo handle is
+also available programmatically inside any view via the `useUndo()` hook
+(`{ undo, canUndo }`). If a view that owned a tracked piece of state has
+unmounted by the time the user undoes a `VIEW_ACTION` for it, the action is
+popped but applying `prev` is a silent no-op — undo still advances one step.
 
 ### How new views and filters inherit tracking
 

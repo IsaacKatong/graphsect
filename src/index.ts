@@ -38,8 +38,11 @@ export type {
   FilterChangedAction,
   ViewsChangedAction,
   SelectionChangedAction,
+  ViewAction,
 } from "./action-log/types";
 export {
   useActionLogSnapshot,
   useUndo,
+  DEFAULT_DEBOUNCE_MS,
 } from "./action-log/ActionLogContext";
+export { useTrackedState } from "./action-log/useTrackedState";

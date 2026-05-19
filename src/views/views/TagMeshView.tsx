@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import TagMesh2DView from "../../tag-mesh/TagMesh2DView";
 import TagMeshControls from "../../tag-mesh/TagMeshControls";
 import { transformGraph } from "../../external-graph/transformGraph";
 import { TagMeshParams } from "../../tag-mesh/buildTagMeshLayout";
 import { computeTagScores } from "../../carousels/scoreTag";
 import { GraphViewProps } from "../types";
+import { useTrackedState } from "../../action-log/useTrackedState";
 
 const DEFAULT_PARAMS: TagMeshParams = {
   mainNeighbors: 6,
@@ -15,7 +16,14 @@ const DEFAULT_PARAMS: TagMeshParams = {
 };
 
 export default function TagMeshView({ graph }: GraphViewProps) {
-  const [params, setParams] = useState<TagMeshParams>(DEFAULT_PARAMS);
+  // Sliders fire many setParams calls per drag; debounce so one drag gesture
+  // collapses into one undoable action.
+  const [params, setParams] = useTrackedState<TagMeshParams>(
+    "tag-mesh",
+    "params",
+    DEFAULT_PARAMS,
+    { debounce: true },
+  );
   const data = useMemo(() => transformGraph(graph), [graph]);
   const scores = useMemo(() => computeTagScores(graph), [graph]);
 

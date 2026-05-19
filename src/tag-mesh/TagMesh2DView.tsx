@@ -12,12 +12,16 @@ import {
   buildTagMeshLayout,
   TagMeshParams,
 } from "./buildTagMeshLayout";
+import { useTrackedState } from "../action-log/useTrackedState";
 
 type TagMesh2DViewProps = {
   data: ForceGraphData;
   params: TagMeshParams;
   scores: ReadonlyMap<string, number>;
 };
+
+type Viewport = { pan: { x: number; y: number }; zoom: number };
+const INITIAL_VIEWPORT: Viewport = { pan: { x: 0, y: 0 }, zoom: 1 };
 
 const PADDING = 40;
 
@@ -89,8 +93,16 @@ export default function TagMesh2DView({
 
   // Pan is in world units; shifts the viewBox origin so the scene follows
   // the cursor as the user drags. Zoom scales the viewBox around its center.
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  // Pan + zoom are tracked together so wheel-zoom (which sets both) and
+  // Reset collapse to a single undoable action. Debounced so a drag/wheel
+  // gesture records once per gesture, not per pixel.
+  const [viewport, setViewport] = useTrackedState<Viewport>(
+    "tag-mesh",
+    "viewport",
+    INITIAL_VIEWPORT,
+    { debounce: true },
+  );
+  const { pan, zoom } = viewport;
   const MIN_ZOOM = 0.1;
   const MAX_ZOOM = 20;
 
@@ -127,7 +139,10 @@ export default function TagMesh2DView({
       const onMove = (ev: MouseEvent) => {
         const dx = (ev.clientX - startX) / s;
         const dy = (ev.clientY - startY) / s;
-        setPan({ x: basePan.x + dx, y: basePan.y + dy });
+        setViewport((v) => ({
+          ...v,
+          pan: { x: basePan.x + dx, y: basePan.y + dy },
+        }));
       };
       const onUp = () => {
         setIsDragging(false);
@@ -212,8 +227,7 @@ export default function TagMesh2DView({
       const panX = bv.x + (bv.w - vwNew) / 2 - vxNew;
       const panY = bv.y + (bv.h - vhNew) / 2 - vyNew;
 
-      setZoom(newZoom);
-      setPan({ x: panX, y: panY });
+      setViewport({ zoom: newZoom, pan: { x: panX, y: panY } });
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -221,9 +235,8 @@ export default function TagMesh2DView({
   }, []);
 
   const resetView = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, []);
+    setViewport(INITIAL_VIEWPORT);
+  }, [setViewport]);
 
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -237,9 +250,15 @@ export default function TagMesh2DView({
   );
   const onNodeLeave = useCallback(() => setHovered(null), []);
 
-  const stepZoom = useCallback((factor: number) => {
-    setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
-  }, []);
+  const stepZoom = useCallback(
+    (factor: number) => {
+      setViewport((v) => ({
+        ...v,
+        zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.zoom * factor)),
+      }));
+    },
+    [setViewport],
+  );
 
   return (
     <div

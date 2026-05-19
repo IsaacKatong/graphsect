@@ -124,11 +124,24 @@ top-level [`README.md`](../../README.md)). The pipeline only works because all
 three pieces of state live at `<GraphSect>` and are mutated through the props
 listed above. **A new view must never own its own filter state, its own
 copy of `selectedDatumId`, or its own view-visibility state internally** —
-read those from props, write back through the provided callbacks. Local state
-for purely visual concerns (zoom, hover, expand/collapse) is fine. If you
-need to track a brand-new kind of user action, hoist its state to
-`<GraphSect>` and add an entry to `src/action-log/types.ts` rather than
-keeping it inside a view.
+read those from props, write back through the provided callbacks.
+
+#### View-local state that should be undoable
+
+Views *are* allowed to own their own state (zoom, sliders, scroll position,
+etc.). Whether or not that state participates in the action log is the view's
+call:
+
+- If the state should be undoable, declare it with `useTrackedState(viewId, kind, initial, { debounce })` from `src/action-log/`. The hook records each change as a `VIEW_ACTION` and self-registers an undoer so the Undo button rewinds through the view's setter.
+- If the state is transient (hover, drag-in-progress flag, animation frame), keep it as plain `useState`.
+
+Use `debounce: true` for anything continuous (drag, wheel zoom, slider) so
+one gesture costs one undo step. The debounce window is configured globally
+via the `debounceMs` prop on `<GraphSect>` (default 300 ms). When several
+pieces of view state move together as a single gesture (e.g. a wheel-zoom
+that updates both zoom and pan), keep them in **one** tracked object so the
+undo step matches the user's mental model — see `tag-mesh/TagMesh2DView.tsx`
+for an example with a combined `viewport`.
 
 ## Files
 

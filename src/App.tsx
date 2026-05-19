@@ -20,7 +20,10 @@ import { ViewSelectorProvider } from "./views/ViewSelectorContext";
 import NodeDetailPanel from "./graph-view/NodeDetailPanel";
 import { Carousel } from "./carousels/types";
 import { useActionLog } from "./action-log/useActionLog";
-import { ActionLogProvider } from "./action-log/ActionLogContext";
+import {
+  ActionLogProvider,
+  DEFAULT_DEBOUNCE_MS,
+} from "./action-log/ActionLogContext";
 import { diffFilterState, diffViewIds } from "./action-log/diff";
 import type { Action } from "./action-log/types";
 
@@ -33,10 +36,18 @@ type GraphSectProps = {
   defaultActiveViewIds?: string[];
   /**
    * Called for every user action that mutates filter state, the active view
-   * list, or the global datum selection. Fires in the order the actions occur.
-   * Mutations to the external graph are not actions and are not reported.
+   * list, the global datum selection, or any view-local state registered via
+   * `useTrackedState`. Fires in the order the actions occur. Mutations to
+   * the external graph are not actions and are not reported.
    */
   onAction?: (action: Action) => void;
+  /**
+   * Debounce window in milliseconds used by `useTrackedState` when it's
+   * configured with `debounce: true`. Sliders, drag, and wheel zoom collapse
+   * into one action per gesture using this window.
+   * @default 300
+   */
+  debounceMs?: number;
 };
 
 const PINNED_VIEW_ID = FILTERS_VIEW.id;
@@ -54,6 +65,7 @@ function GraphSect({
   carousels,
   defaultActiveViewIds = DEFAULT_ACTIVE_VIEW_IDS,
   onAction,
+  debounceMs = DEFAULT_DEBOUNCE_MS,
 }: GraphSectProps) {
   const [filterState, setFilterState] =
     useState<FilterState>(EMPTY_FILTER_STATE);
@@ -154,6 +166,15 @@ function GraphSect({
         selectedDatumIdRef.current = action.prev;
         setSelectedDatumId(action.prev);
         break;
+      case "VIEW_ACTION": {
+        // View-owned undo. If the view's component has unmounted between
+        // recording and undoing, the registered undoer is gone — silently
+        // skip rather than crash. The action is still popped, matching the
+        // user's mental model of "undo always consumes one step."
+        const undoer = actionLog.getUndoer(action.viewId, action.kind);
+        undoer?.(action.prev);
+        break;
+      }
     }
   }, [actionLog]);
 
@@ -161,9 +182,12 @@ function GraphSect({
     () => ({
       subscribe: actionLog.subscribe,
       getSnapshot: actionLog.getSnapshot,
+      record: actionLog.record,
+      registerUndoer: actionLog.registerUndoer,
       undo,
+      debounceMs,
     }),
-    [actionLog, undo],
+    [actionLog, undo, debounceMs],
   );
 
   // If the caller passed a `views` array, use it verbatim. Otherwise use the

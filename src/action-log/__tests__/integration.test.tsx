@@ -7,6 +7,7 @@ import { FILTERS_VIEW } from "../../views/builtinViews";
 import { useViewSelector } from "../../views/ViewSelectorContext";
 import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
 import { useActionLogSnapshot } from "../ActionLogContext";
+import { useTrackedState } from "../useTrackedState";
 import type { Action } from "../types";
 
 beforeAll(() => {
@@ -269,6 +270,56 @@ describe("GraphSect action pipeline", () => {
       fireEvent.click(screen.getByTestId("undo-button"));
     });
     expect(actions).toHaveLength(3);
+  });
+
+  it("VIEW_ACTION: a tracked-state set is recorded and undo routes to the view's setter", () => {
+    let setLocal!: (n: number) => void;
+    let observed = -1;
+    const Tracked: GraphView = {
+      id: "tracked-probe",
+      name: "tracked",
+      minHeight: 100,
+      Component: () => {
+        const [v, set] = useTrackedState<number>(
+          "tracked-probe",
+          "count",
+          0,
+        );
+        observed = v;
+        setLocal = set;
+        return <div data-testid="view-tracked-probe">{v}</div>;
+      },
+    };
+    const actions: Action[] = [];
+    render(
+      <GraphSect
+        graph={createMockGraph()}
+        views={[FILTERS_VIEW, Tracked]}
+        defaultActiveViewIds={["tracked-probe"]}
+        onAction={(a) => actions.push(a)}
+      />,
+    );
+
+    act(() => {
+      setLocal(42);
+    });
+    expect(observed).toBe(42);
+    expect(actions).toHaveLength(1);
+    const recorded = actions[0];
+    if (recorded.type !== "VIEW_ACTION") throw new Error("unreachable");
+    expect(recorded.viewId).toBe("tracked-probe");
+    expect(recorded.kind).toBe("count");
+    expect(recorded.prev).toBe(0);
+    expect(recorded.next).toBe(42);
+
+    // Click Undo — value should rewind to 0, log empty.
+    act(() => {
+      fireEvent.click(screen.getByTestId("undo-button"));
+    });
+    expect(observed).toBe(0);
+    expect((screen.getByTestId("undo-button") as HTMLButtonElement).disabled).toBe(true);
+    // Undo did not emit a new action.
+    expect(actions).toHaveLength(1);
   });
 
   it("a fresh GraphSect has the Undo button disabled", () => {
