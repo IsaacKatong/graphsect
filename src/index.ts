@@ -32,3 +32,14 @@ export {
   mostConnectedSelection,
 } from "./carousels/defaultCarousels";
 export { computeTagScores } from "./carousels/scoreTag";
+export type {
+  Action,
+  ActionType,
+  FilterChangedAction,
+  ViewsChangedAction,
+  SelectionChangedAction,
+} from "./action-log/types";
+export {
+  useActionLogSnapshot,
+  useUndo,
+} from "./action-log/ActionLogContext";

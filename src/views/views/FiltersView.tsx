@@ -3,6 +3,7 @@ import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
 import { GraphViewProps } from "../types";
 import ViewSelector from "../ViewSelector";
 import { useViewSelector } from "../ViewSelectorContext";
+import UndoButton from "../../action-log/UndoButton";
 
 export default function FiltersView({
   graph,
@@ -30,15 +31,16 @@ export default function FiltersView({
         onFilterChange={setFilter}
         onClearAll={clearAll}
       />
-      {selector && (
-        <div style={selectorSlotStyle}>
+      <div style={selectorSlotStyle}>
+        <UndoButton />
+        {selector && (
           <ViewSelector
             views={selector.views}
             activeIds={selector.activeIds}
             onActiveIdsChange={selector.onActiveIdsChange}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -58,4 +60,7 @@ const panelStyle: React.CSSProperties = {
 
 const selectorSlotStyle: React.CSSProperties = {
   flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
 };

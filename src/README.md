@@ -8,5 +8,6 @@ Application source code for graphSect.
 - **graph-view/** — Node detail panel shown when a datum is selected.
 - **tag-mesh/** — 2D mesh view: greedy tag-based layout heuristic, SVG renderer, and slider controls for tuning neighbor count, tag size, and distance.
 - **plotting/** — Dimension-based plotting with Plotly.js. Selecting 1–3 dimensions as axes switches the view from the tag mesh to a scatter plot that places datums at their exact coordinate values.
+- **action-log/** — Captures every user action that updates filter state, the active view list, or the global datum selection. The single chokepoint is the wrapped setters in `App.tsx`; new views and filters inherit tracking automatically as long as they keep all action-worthy state hoisted to `<GraphSect>`.
 - **App.tsx** — Root application component that loads graph data and wires up the views.
 - **main.tsx** — Entry point that mounts the React app to the DOM.

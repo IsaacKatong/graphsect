@@ -98,3 +98,84 @@ You can also hide the default filter panel while still using the built-in filter
 | `filterCallbacks?` | `FilterCallbacks` | Optional callbacks to override individual default filters |
 | `customGraphFilter?` | `CustomGraphFilter` | Optional callback that replaces all built-in filtering |
 | `hideDefaultFilters?` | `boolean` | Hide the default filter panel |
+| `views?` | `GraphView[]` | Replace the default view registry |
+| `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view |
+| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount |
+| `onAction?` | `(action: Action) => void` | Receive every user action that changes filters, the active view list, or the selected datum |
+
+## Action Pipeline
+
+GraphSect tracks every user action that updates filter state, the active view
+list, or the global datum selection. Mutations to the external graph itself
+are not actions and are not reported.
+
+### Consuming actions
+
+Subscribe at the host via the `onAction` prop:
+
+```tsx
+import { GraphSect, Action } from "graphsect";
+
+<GraphSect
+  graph={myExternalGraph}
+  onAction={(action: Action) => {
+    // action.seq, action.timestamp, action.type, plus a typed payload
+    console.log(action);
+  }}
+/>
+```
+
+Or, from inside a custom view, subscribe to the full log:
+
+```tsx
+import { useActionLogSnapshot } from "graphsect";
+
+function MyDebugView() {
+  const log = useActionLogSnapshot();
+  return <pre>{JSON.stringify(log.at(-1), null, 2)}</pre>;
+}
+```
+
+### Action shapes
+
+All actions share `{ seq: number; timestamp: number; type: string }`. `seq`
+is monotonic across every action type, so the log is a single total order.
+
+| Type | Payload |
+|---|---|
+| `FILTER_CHANGED` | `prev`, `next` (full `FilterState`), `changedKeys` (which slices flipped) |
+| `VIEWS_CHANGED` | `prev`, `next` (view-id arrays), `added`, `removed` |
+| `SELECTION_CHANGED` | `prev`, `next` (datum id or `null`) |
+
+### Undo
+
+`<GraphSect>` ships an **Undo** button in the filters toolbar (next to the
+Views menu). Clicking it pops the most recent action from the log and rewinds
+the corresponding state to that action's recorded `prev` value. Undo is a
+rewind, not a new action — it does **not** append to the log and does **not**
+fire `onAction`. When the log is empty the button is disabled. The undo
+handle is also available programmatically inside any view via the `useUndo()`
+hook (`{ undo, canUndo }`).
+
+### How new views and filters inherit tracking
+
+There is one rule:
+
+> **All action-worthy state lives at `<GraphSect>`.** Views and filters never
+> own filter state, the active view list, or the global datum selection
+> internally — they read it from props and write back through the provided
+> callbacks.
+
+Because every action funnels through the three setters on the root component,
+new sources are picked up automatically:
+
+- **Adding a filter** — add a key to `FilterState` in [`src/filtering/types.ts`](src/filtering/types.ts) and write its default in [`src/filtering/defaultFilters.ts`](src/filtering/defaultFilters.ts). The diff routine compares the union by key, so the new slice appears in `changedKeys` the first time it flips. No registration is needed.
+- **Adding a view** — implement a component that takes `GraphViewProps`, wrap it as a `GraphView`, and add it to the registry (see [`src/views/README.md`](src/views/README.md)). Any state the view mutates must go through `onFilterStateChange` or `onSelectedDatumIdChange`; toggling its visibility goes through `ViewSelectorContext.onActiveIdsChange`. All three are already wrapped, so the view contributes to the log by construction.
+
+**What to avoid in a new view:** do not call `useState` for anything that
+represents a filter, a selected datum, or another view's visibility. Local
+state for purely visual concerns (zoom level, hover, expand/collapse) is fine
+— those are not actions. If you find yourself wanting to track a new kind of
+user action, hoist its state to `<GraphSect>` and add a new action type to
+[`src/action-log/types.ts`](src/action-log/types.ts) so the pipeline can carry
+it.

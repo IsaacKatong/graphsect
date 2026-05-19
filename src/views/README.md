@@ -116,6 +116,20 @@ The view body controls its own internal state (e.g. zoom, selected node, tag
 mesh params). Anything that should be shared across views — the source graph
 and the filter state — flows through `GraphViewProps`.
 
+### Action tracking rule
+
+GraphSect logs every user action that updates filter state, the active view
+list, or the global datum selection (see the "Action Pipeline" section of the
+top-level [`README.md`](../../README.md)). The pipeline only works because all
+three pieces of state live at `<GraphSect>` and are mutated through the props
+listed above. **A new view must never own its own filter state, its own
+copy of `selectedDatumId`, or its own view-visibility state internally** —
+read those from props, write back through the provided callbacks. Local state
+for purely visual concerns (zoom, hover, expand/collapse) is fine. If you
+need to track a brand-new kind of user action, hoist its state to
+`<GraphSect>` and add an entry to `src/action-log/types.ts` rather than
+keeping it inside a view.
+
 ## Files
 
 - `types.ts` — the `GraphView` / `GraphViewProps` contract.
