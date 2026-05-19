@@ -150,6 +150,7 @@ const panelStyle: React.CSSProperties = {
   right: 0,
   width: "360px",
   height: "100%",
+  boxSizing: "border-box",
   backgroundColor: "#1e293b",
   color: "#e2e8f0",
   padding: "20px",
