@@ -1,11 +1,35 @@
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { GraphViewProps } from "../types";
+import { useTrackedState } from "../../action-log/useTrackedState";
 
 export default function DatumListView({
   graph,
   selectedDatumId,
   onSelectedDatumIdChange,
+  instanceId,
 }: GraphViewProps) {
+  // Track scroll position so it participates in undo. Debounced so a single
+  // scroll gesture collapses to one action. The DOM scrollTop is the source
+  // of truth: user scrolls copy it into the tracked state; undo writes the
+  // tracked state back onto the element via the effect below.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useTrackedState<number>(
+    instanceId,
+    "scrollTop",
+    0,
+    { debounce: true },
+  );
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // Only write if we actually need to move the element — avoids a redundant
+    // scroll event when the tracked value already matches the DOM. (Setting
+    // el.scrollTop to its current value is a no-op, but reading it costs a
+    // layout flush, which is worth skipping in the steady state.)
+    if (el.scrollTop !== scrollTop) {
+      el.scrollTop = scrollTop;
+    }
+  }, [scrollTop]);
   // Each datum.id is assigned a random sort key the first time we see it
   // and keeps that key for the lifetime of this view instance. The list
   // order is therefore stable as filters add or remove datums: filtered
@@ -24,7 +48,11 @@ export default function DatumListView({
   }, [graph.datums]);
 
   return (
-    <div style={containerStyle}>
+    <div
+      ref={containerRef}
+      style={containerStyle}
+      onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+    >
       {datums.length === 0 ? (
         <div style={emptyStyle}>No datums.</div>
       ) : (
