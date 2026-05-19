@@ -1,16 +1,8 @@
 import { GraphView } from "./types";
-import FiltersView from "./views/FiltersView";
 import TagMeshView from "./views/TagMeshView";
 import PlotGraphView from "./views/PlotGraphView";
 import { createCarouselsView } from "./views/CarouselsView";
 import DatumListView from "./views/DatumListView";
-
-export const FILTERS_VIEW: GraphView = {
-  id: "filters",
-  name: "Filters",
-  minHeight: 90,
-  Component: FiltersView,
-};
 
 export const TAG_MESH_VIEW: GraphView = {
   id: "tag-mesh",
@@ -36,7 +28,6 @@ export const DATUM_LIST_VIEW: GraphView = {
 };
 
 export const BUILTIN_VIEWS: GraphView[] = [
-  FILTERS_VIEW,
   TAG_MESH_VIEW,
   PLOT_VIEW,
   CAROUSELS_VIEW,

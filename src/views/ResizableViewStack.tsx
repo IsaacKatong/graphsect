@@ -35,7 +35,6 @@ export default function ResizableViewStack({
   >("view-stack", "heights", {}, { debounce: true });
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const selector = useViewSelector();
-  const pinnedInstanceId = selector?.pinnedInstanceId;
   const onClose = selector?.onClose;
 
   useEffect(() => {
@@ -99,7 +98,6 @@ export default function ResizableViewStack({
         const h = heights[instance.id] ?? minH;
         const flex = isLast ? "1 1 0" : `0 0 ${h}px`;
         const isDragging = draggingId === instance.id;
-        const isPinned = instance.id === pinnedInstanceId;
         return (
           <Fragment key={instance.id}>
             <div
@@ -113,21 +111,19 @@ export default function ResizableViewStack({
                 flexDirection: "column",
               }}
             >
-              {!isPinned && (
-                <div style={headerStyle}>
-                  <span style={headerNameStyle}>{view.name}</span>
-                  {onClose && (
-                    <button
-                      onClick={() => onClose(instance.id)}
-                      title="Close view"
-                      style={closeButtonStyle}
-                      data-testid={`close-${instance.id}`}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              )}
+              <div style={headerStyle}>
+                <span style={headerNameStyle}>{view.name}</span>
+                {onClose && (
+                  <button
+                    onClick={() => onClose(instance.id)}
+                    title="Close view"
+                    style={closeButtonStyle}
+                    data-testid={`close-${instance.id}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
               <div style={bodyStyle}>{renderView(entry)}</div>
             </div>
             {!isLast && (

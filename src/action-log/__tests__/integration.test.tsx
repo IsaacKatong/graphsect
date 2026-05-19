@@ -3,7 +3,6 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import GraphSect from "../../App";
 import { createMockGraph } from "../../external-graph/__fixtures__/mockGraph";
 import { GraphView, GraphViewProps } from "../../views/types";
-import { FILTERS_VIEW } from "../../views/builtinViews";
 import { useViewSelector } from "../../views/ViewSelectorContext";
 import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
 import { useActionLogSnapshot } from "../ActionLogContext";
@@ -48,7 +47,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, probe, other]}
+        views={[probe, other]}
         defaultActiveViewIds={["probe"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -95,7 +94,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, probe]}
+        views={[probe]}
         defaultActiveViewIds={["probe"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -131,7 +130,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, Probe, other]}
+        views={[Probe, other]}
         defaultActiveViewIds={["probe"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -164,8 +163,9 @@ describe("GraphSect action pipeline", () => {
     if (close.type !== "VIEWS_CHANGED") throw new Error("unreachable");
     expect(close.removed.map((v) => v.id)).toEqual([addedInstanceId]);
     expect(close.added).toEqual([]);
-    // The pinned filters instance stays in `next` across both transitions.
-    expect(close.next.map((v) => v.id)).toContain("filters");
+    // After closing the added instance, the active list should only contain
+    // the originally-active "probe" instance.
+    expect(close.next.map((v) => v.typeId)).toEqual(["probe"]);
   });
 
   it("Undo button rewinds each action type, pops the log, and does not fire onAction", () => {
@@ -204,7 +204,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, probeWithSelector, other, inspector]}
+        views={[probeWithSelector, other, inspector]}
         defaultActiveViewIds={["probe", "inspector"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -297,7 +297,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, Tracked]}
+        views={[Tracked]}
         defaultActiveViewIds={["tracked-probe"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -342,7 +342,7 @@ describe("GraphSect action pipeline", () => {
       const { container } = render(
         <GraphSect
           graph={createMockGraph()}
-          views={[FILTERS_VIEW, probe, second]}
+          views={[probe, second]}
           defaultActiveViewIds={["probe", "second"]}
           onAction={(a) => actions.push(a)}
         />,
@@ -417,7 +417,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, Tracked, SelectorProbe]}
+        views={[Tracked, SelectorProbe]}
         defaultActiveViewIds={["twin", "selector-probe"]}
       />,
     );
@@ -475,7 +475,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, SP, other]}
+        views={[SP, other]}
         defaultActiveViewIds={["sp"]}
         onAction={(a) => actions.push(a)}
       />,
@@ -509,7 +509,7 @@ describe("GraphSect action pipeline", () => {
     render(
       <GraphSect
         graph={createMockGraph()}
-        views={[FILTERS_VIEW, probe]}
+        views={[probe]}
         defaultActiveViewIds={["probe"]}
       />,
     );

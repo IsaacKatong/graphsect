@@ -9,11 +9,7 @@ import {
 import { applyFilters } from "./filtering/applyFilters";
 import { transformGraph } from "./external-graph/transformGraph";
 import ViewManager from "./views/ViewManager";
-import {
-  BUILTIN_VIEWS,
-  CAROUSELS_VIEW,
-  FILTERS_VIEW,
-} from "./views/builtinViews";
+import { BUILTIN_VIEWS, CAROUSELS_VIEW } from "./views/builtinViews";
 import { createCarouselsView } from "./views/views/CarouselsView";
 import { GraphView } from "./views/types";
 import { ViewSelectorProvider } from "./views/ViewSelectorContext";
@@ -27,6 +23,7 @@ import {
 import { diffFilterState, diffViews } from "./action-log/diff";
 import type { Action } from "./action-log/types";
 import { ViewInstance } from "./views/types";
+import Toolbar from "./Toolbar";
 
 type GraphSectProps = {
   graph: ExternalGraph;
@@ -51,15 +48,7 @@ type GraphSectProps = {
   debounceMs?: number;
 };
 
-const PINNED_TYPE_ID = FILTERS_VIEW.id;
-const PINNED_INSTANCE_ID = FILTERS_VIEW.id;
-const DEFAULT_ACTIVE_VIEW_IDS = [PINNED_TYPE_ID, "datum-list"];
-
-function ensurePinned(views: ViewInstance[]): ViewInstance[] {
-  return views.some((v) => v.id === PINNED_INSTANCE_ID)
-    ? views
-    : [{ id: PINNED_INSTANCE_ID, typeId: PINNED_TYPE_ID }, ...views];
-}
+const DEFAULT_ACTIVE_VIEW_IDS = ["datum-list"];
 
 function GraphSect({
   graph,
@@ -82,18 +71,12 @@ function GraphSect({
     instanceCounterRef.current += 1;
     return `${typeId}-${instanceCounterRef.current}`;
   }, []);
-  const [activeViews, setActiveViewsRaw] = useState<ViewInstance[]>(() => {
-    // Seed one instance per entry of defaultActiveViewIds, except the pinned
-    // filters view which always uses its constant instance id.
-    const seeded: ViewInstance[] = defaultActiveViewIds.map((typeId) => {
-      if (typeId === PINNED_TYPE_ID) {
-        return { id: PINNED_INSTANCE_ID, typeId };
-      }
+  const [activeViews, setActiveViewsRaw] = useState<ViewInstance[]>(() =>
+    defaultActiveViewIds.map((typeId) => {
       instanceCounterRef.current += 1;
       return { id: `${typeId}-${instanceCounterRef.current}`, typeId };
-    });
-    return ensurePinned(seeded);
-  });
+    }),
+  );
   // Global datum selection — one slot, shared across every view. Clicking a
   // datum anywhere replaces this id; the NodeDetailPanel below the stack
   // re-renders against the new selection. Set to `null` to close the panel.
@@ -144,17 +127,10 @@ function GraphSect({
   const setActiveViews = useCallback(
     (next: ViewInstance[]) => {
       const prev = activeViewsRef.current;
-      const ensured = ensurePinned(next);
-      const { added, removed } = diffViews(prev, ensured);
+      const { added, removed } = diffViews(prev, next);
       if (added.length === 0 && removed.length === 0) return;
-      record({
-        type: "VIEWS_CHANGED",
-        prev,
-        next: ensured,
-        added,
-        removed,
-      });
-      setActiveViewsRaw(ensured);
+      record({ type: "VIEWS_CHANGED", prev, next, added, removed });
+      setActiveViewsRaw(next);
     },
     [record],
   );
@@ -168,11 +144,9 @@ function GraphSect({
     [setActiveViews, nextInstanceId],
   );
 
-  // Convenience: remove an instance by its unique id. The pinned filters
-  // view can't be closed.
+  // Convenience: remove an instance by its unique id.
   const removeView = useCallback(
     (instanceId: string) => {
-      if (instanceId === PINNED_INSTANCE_ID) return;
       setActiveViews(
         activeViewsRef.current.filter((v) => v.id !== instanceId),
       );
@@ -250,12 +224,8 @@ function GraphSect({
     return applyFilters(graph, filterState, filterCallbacks);
   }, [graph, filterState, filterCallbacks, customGraphFilter]);
 
-  // The Add-view menu lives inside the pinned Filters view; only non-pinned
-  // view types can be added through it (the pinned view is always present).
-  const addableTypes = useMemo(
-    () => effectiveViews.filter((v) => v.id !== PINNED_TYPE_ID),
-    [effectiveViews],
-  );
+  // Every registered view type is addable — there's no longer a pinned view.
+  const addableTypes = effectiveViews;
 
   // Resolve the global selection against the *source* graph so the detail
   // panel keeps working even if a filter just hid the selected datum.
@@ -274,19 +244,25 @@ function GraphSect({
             addableTypes,
             onAdd: addView,
             onClose: removeView,
-            pinnedInstanceId: PINNED_INSTANCE_ID,
           }}
         >
-          <ViewManager
-            views={effectiveViews}
-            activeViews={activeViews}
-            sourceGraph={graph}
-            filteredGraph={filteredGraph}
+          <Toolbar
+            graph={filteredGraph}
             filterState={filterState}
             onFilterStateChange={handleFilterStateChange}
-            selectedDatumId={selectedDatumId}
-            onSelectedDatumIdChange={handleSelectedDatumIdChange}
           />
+          <div style={stackAreaStyle}>
+            <ViewManager
+              views={effectiveViews}
+              activeViews={activeViews}
+              sourceGraph={graph}
+              filteredGraph={filteredGraph}
+              filterState={filterState}
+              onFilterStateChange={handleFilterStateChange}
+              selectedDatumId={selectedDatumId}
+              onSelectedDatumIdChange={handleSelectedDatumIdChange}
+            />
+          </div>
         </ViewSelectorProvider>
         <NodeDetailPanel
           node={selectedNode}
@@ -296,6 +272,14 @@ function GraphSect({
     </ActionLogProvider>
   );
 }
+
+const stackAreaStyle: React.CSSProperties = {
+  flex: "1 1 auto",
+  minHeight: 0,
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+};
 
 const rootStyle: React.CSSProperties = {
   width: "100%",

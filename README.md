@@ -161,9 +161,10 @@ type ViewInstance = {
 ```
 
 The same view type can be added to the stack multiple times — clicking the
-**Add view** menu in the filters toolbar appends a fresh instance with its
-own auto-generated id. Each instance gets its own header strip with a close
-(×) button. The pinned filters view is always present and can't be closed.
+**Add view** menu in the top toolbar appends a fresh instance with its own
+auto-generated id. Each instance gets its own header strip with a close (×)
+button; every view in the stack is closable. The filter buttons are not a
+view — they live in the always-on toolbar alongside Undo and Add view.
 
 Inside a view component, the `instanceId` prop is the unique id for *this*
 instance. Pass it to `useTrackedState` so two on-screen instances of the same
@@ -239,8 +240,8 @@ seedHeights((prev) => ({ ...prev, [newViewId]: minHeight }));
 
 ### Undo
 
-`<GraphSect>` ships an **Undo** button in the filters toolbar (next to the
-Views menu). Clicking it pops the most recent action from the log and rewinds
+`<GraphSect>` ships an **Undo** button in the top toolbar (next to the Add
+view menu). Clicking it pops the most recent action from the log and rewinds
 the corresponding state to that action's recorded `prev` value — including
 view-local state registered through `useTrackedState`. Undo is a rewind, not
 a new action: it does **not** append to the log and does **not** fire

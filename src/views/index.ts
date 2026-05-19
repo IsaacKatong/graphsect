@@ -1,5 +1,5 @@
 export { default as ViewManager } from "./ViewManager";
-export { default as ViewSelector } from "./ViewSelector";
+export { default as AddViewMenu } from "./ViewSelector";
 export { default as ResizableViewStack } from "./ResizableViewStack";
 export {
   ViewSelectorProvider,
@@ -7,11 +7,10 @@ export {
 } from "./ViewSelectorContext";
 export {
   BUILTIN_VIEWS,
-  FILTERS_VIEW,
   TAG_MESH_VIEW,
   PLOT_VIEW,
   CAROUSELS_VIEW,
   DATUM_LIST_VIEW,
 } from "./builtinViews";
 export { createCarouselsView } from "./views/CarouselsView";
-export type { GraphView, GraphViewProps } from "./types";
+export type { GraphView, GraphViewProps, ViewInstance } from "./types";

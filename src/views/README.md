@@ -4,13 +4,14 @@ The view-management layer. Everything the user sees of an `ExternalGraph` is a
 `GraphView`, and this folder is responsible for:
 
 - Defining the `GraphView` contract.
-- Maintaining the registry of built-in views (filters, tag mesh, plot).
+- Maintaining the registry of built-in views (tag mesh, plot, carousels,
+  datum list — filter buttons are NOT a view; they live in `<Toolbar>`).
 - Letting the user **add** instances of any view type via `AddViewMenu`. The
   same view type can be added multiple times — each instance carries its own
   state and its own undo history.
 - Stacking active instances full-width with drag-to-resize heights
-  (`ResizableViewStack`), each non-pinned instance rendered with a small
-  header strip and a close (×) button.
+  (`ResizableViewStack`), each instance rendered with a small header strip
+  and a close (×) button.
 - Feeding every active instance a consistent slice of the world: the source
   graph, the filtered graph, the current filter state, the current selection,
   and the instance's unique id.
@@ -58,8 +59,11 @@ clickable datums can simply ignore the prop.
 
 ## Built-in views
 
-- `FILTERS_VIEW` — wraps the legacy `FilterPanel`. Reads `sourceGraph` to
-  enumerate options, writes `filterState`.
+The filter buttons themselves are **not** a view — they live in the always-on
+top-of-app `<Toolbar>` (see [`src/Toolbar.tsx`](../Toolbar.tsx)) alongside
+Undo and Add view. The view stack underneath only holds user-selected views,
+each of which can be closed.
+
 - `TAG_MESH_VIEW` — wraps the 2D tag mesh. Reads the filtered `graph`.
 - `PLOT_VIEW` — wraps the dimension scatter plot and its dimension picker.
   Reads both the `sourceGraph` (for picking dimensions) and the filtered
@@ -79,26 +83,20 @@ All are exported from `builtinViews.ts` and are the default contents of the
 
 ## AddViewMenu
 
-An **Add view** button + dropdown listing every view type in the registry
-(except the pinned filters view). Clicking a type appends a fresh instance to
-the active list. The same type can be added any number of times.
+An **Add view** button + dropdown listing every view type in the registry.
+Clicking a type appends a fresh instance to the active list. The same type
+can be added any number of times.
 
-The menu lives inside the pinned `FiltersView` (not in a global toolbar).
-The host renders it via the `ViewSelectorContext` — `<GraphSect>` wraps the
-tree in `<ViewSelectorProvider value={{ addableTypes, onAdd, onClose, pinnedInstanceId }}>`,
-and `FiltersView` reads it with `useViewSelector()`. Closing an instance is
-handled by the × button each non-pinned instance renders in its header
-(also dispatched through `useViewSelector().onClose`).
+The menu lives in the top-level `<Toolbar>`, not inside any view. The host
+exposes it via the `ViewSelectorContext` — `<GraphSect>` wraps the tree in
+`<ViewSelectorProvider value={{ addableTypes, onAdd, onClose }}>`, and
+`<Toolbar>` reads it with `useViewSelector()`. Closing an instance is
+handled by the × button each instance renders in its header (also dispatched
+through `useViewSelector().onClose`).
 
-## Pinned views
-
-The Filters view is **pinned**: it's always present as a singleton with the
-constant instance id `"filters"`, can't be closed, and doesn't appear in the
-Add view menu. `<GraphSect>` enforces this by re-injecting the pinned
-instance into every `setActiveViews` emission.
-
-If you replace the registry via the `views` prop on `<GraphSect>`, the same
-rule applies to whichever view has id `"filters"` — it remains pinned.
+The view stack is fully user-controlled: every active view can be closed,
+including the last one (the stack then shows an empty-state message). The
+toolbar is always present, so the user can always add views back.
 
 ## ResizableViewStack
 

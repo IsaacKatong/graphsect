@@ -3,11 +3,11 @@
 GraphSect is built around a `GraphView` abstraction. The `<GraphSect>`
 component owns the source `ExternalGraph` and the current `FilterState`. It
 applies filters once, then hands the resulting filtered graph to every active
-view. Built-in views — Filters, Tag Mesh, Plot, Carousels — each render the
-filtered graph in their own way and may write back to the filter state. The
-Filters view is pinned (always active, never appears in the selector); the
-user toggles other views from a multi-select menu rendered inside the Filters
-bar. Active views stack full-width with drag-resizable heights.
+view. A top-level `<Toolbar>` (Undo + Add view, with the filter buttons
+beneath them) is always present; underneath sits a user-controlled stack of
+view instances — Tag Mesh, Plot, Carousels, Datum List — that each render the
+filtered graph in their own way and may write back to the filter state.
+Active views stack full-width with drag-resizable heights.
 
 ## Data Flow
 
@@ -24,21 +24,23 @@ ExternalGraph (source)
        ▼                                                            ▼
   ExternalGraph (filtered) ────────────────────────────────────────┘
        │
-       ▼
-  ViewManager  (active instances always include the pinned Filters view)
-       │
-       ├── for each active view ──→ ResizableViewStack
-       │
-       ▼
-  view.Component({ sourceGraph, graph, filterState, onFilterStateChange })
-       │
-       ├── FiltersView (pinned) ──── writes filterState ──── (closes loop into applyFilters)
-       │       │
-       │       └── hosts AddViewMenu via ViewSelectorContext (appends one instance per click)
+       ├──→ Toolbar (always-on)
+       │      ├── Undo + AddViewMenu (top row)
+       │      └── FilterPanel (bottom row) ── writes filterState ──┐
+       │                                                            │
+       ▼                                                            │
+  ViewManager  (only the views the user has added)                  │
+       │                                                            │
+       ├── for each active instance ──→ ResizableViewStack          │
+       │                                                            │
+       ▼                                                            │
+  view.Component({ sourceGraph, graph, filterState, onFilterStateChange, ... })
+       │                                                            │
        ├── TagMeshView ─── transformGraph() + computeTagScores() ──→ TagMesh2DView (SVG)
        ├── PlotGraphView ─ PlotView (Plotly) ──→ onSelectedDatumIdChange(datumId)
-       └── CarouselsView ─ runs each Carousel.selection(graph) ──→ tag rectangles
-                                              click → toggles tag in datumTags
+       ├── CarouselsView ─ runs each Carousel.selection(graph) ──→ tag rectangles
+       │                                              click → toggles tag in datumTags
+       └── DatumListView ─ scrollable list (scroll tracked) ──→ onSelectedDatumIdChange(datumId)
 
   selectedDatumId (hoisted to <GraphSect>) ──→ NodeDetailPanel (single shared instance)
 ```
