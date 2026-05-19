@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { diffFilterState, diffViewIds } from "../diff";
+import { diffFilterState, diffViews } from "../diff";
 import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
+import type { ViewInstance } from "../../views/types";
+
+const v = (id: string, typeId: string = id.replace(/-\d+$/, "")): ViewInstance => ({
+  id,
+  typeId,
+});
 
 describe("diffFilterState", () => {
   it("returns an empty list when nothing changed", () => {
@@ -34,25 +40,32 @@ describe("diffFilterState", () => {
   });
 });
 
-describe("diffViewIds", () => {
-  it("reports additions and removals separately", () => {
-    expect(diffViewIds(["a", "b"], ["b", "c"])).toEqual({
-      added: ["c"],
-      removed: ["a"],
+describe("diffViews", () => {
+  it("reports additions and removals separately, keyed by instance id", () => {
+    expect(diffViews([v("a-1"), v("b-1")], [v("b-1"), v("c-1")])).toEqual({
+      added: [v("c-1")],
+      removed: [v("a-1")],
     });
   });
 
-  it("reports nothing when the sets match", () => {
-    expect(diffViewIds(["a", "b"], ["a", "b"])).toEqual({
+  it("reports nothing when the instance sets match", () => {
+    expect(diffViews([v("a-1"), v("b-1")], [v("a-1"), v("b-1")])).toEqual({
       added: [],
       removed: [],
     });
   });
 
-  it("is order-insensitive", () => {
-    expect(diffViewIds(["a", "b"], ["b", "a"])).toEqual({
-      added: [],
-      removed: [],
+  it("two instances of the same type are distinct", () => {
+    // Both have typeId "tag-mesh" but different ids — removing one and
+    // adding another should be reported as a swap.
+    expect(
+      diffViews(
+        [v("tag-mesh-1", "tag-mesh")],
+        [v("tag-mesh-2", "tag-mesh")],
+      ),
+    ).toEqual({
+      added: [v("tag-mesh-2", "tag-mesh")],
+      removed: [v("tag-mesh-1", "tag-mesh")],
     });
   });
 });

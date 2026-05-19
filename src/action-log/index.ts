@@ -18,4 +18,4 @@ export {
   DEFAULT_DEBOUNCE_MS,
 } from "./ActionLogContext";
 export { useTrackedState } from "./useTrackedState";
-export { diffFilterState, diffViewIds } from "./diff";
+export { diffFilterState, diffViews } from "./diff";

@@ -1,57 +1,48 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import ViewSelector from "../ViewSelector";
+import AddViewMenu from "../ViewSelector";
 import { createMockView } from "../__fixtures__/mockViews";
 
-describe("ViewSelector", () => {
-  it("renders the active count badge", () => {
-    const views = [createMockView("a"), createMockView("b")];
-    render(
-      <ViewSelector views={views} activeIds={["a"]} onActiveIdsChange={() => {}} />,
-    );
-    expect(screen.getByText("1")).toBeTruthy();
+describe("AddViewMenu", () => {
+  it("renders an Add view button", () => {
+    render(<AddViewMenu addableTypes={[]} onAdd={() => {}} />);
+    expect(screen.getByTestId("add-view-button")).toBeTruthy();
   });
 
-  it("toggles a view on and emits a new active list", () => {
-    const onChange = vi.fn();
-    const views = [createMockView("a"), createMockView("b")];
-    render(
-      <ViewSelector views={views} activeIds={["a"]} onActiveIdsChange={onChange} />,
-    );
-    fireEvent.click(screen.getByText("Views"));
-    fireEvent.click(screen.getByLabelText("b"));
-    expect(onChange).toHaveBeenCalledWith(["a", "b"]);
+  it("opens a dropdown listing every addable view type", () => {
+    const onAdd = vi.fn();
+    const types = [createMockView("a"), createMockView("b")];
+    render(<AddViewMenu addableTypes={types} onAdd={onAdd} />);
+    fireEvent.click(screen.getByTestId("add-view-button"));
+    expect(screen.getByTestId("add-view-a")).toBeTruthy();
+    expect(screen.getByTestId("add-view-b")).toBeTruthy();
   });
 
-  it("toggles a view off and emits the remaining ids", () => {
-    const onChange = vi.fn();
-    const views = [createMockView("a"), createMockView("b")];
-    render(
-      <ViewSelector
-        views={views}
-        activeIds={["a", "b"]}
-        onActiveIdsChange={onChange}
-      />,
-    );
-    fireEvent.click(screen.getByText("Views"));
-    fireEvent.click(screen.getByLabelText("a"));
-    expect(onChange).toHaveBeenCalledWith(["b"]);
+  it("clicking an option calls onAdd with the type id", () => {
+    const onAdd = vi.fn();
+    const types = [createMockView("a"), createMockView("b")];
+    render(<AddViewMenu addableTypes={types} onAdd={onAdd} />);
+    fireEvent.click(screen.getByTestId("add-view-button"));
+    fireEvent.click(screen.getByTestId("add-view-b"));
+    expect(onAdd).toHaveBeenCalledWith("b");
   });
 
-  it("preserves registry order regardless of selection order", () => {
-    // The user has 'b' active; toggling 'a' on should yield ['a', 'b'] because
-    // 'a' precedes 'b' in the views array, not ['b', 'a'].
-    const onChange = vi.fn();
-    const views = [createMockView("a"), createMockView("b"), createMockView("c")];
-    render(
-      <ViewSelector
-        views={views}
-        activeIds={["b"]}
-        onActiveIdsChange={onChange}
-      />,
-    );
-    fireEvent.click(screen.getByText("Views"));
-    fireEvent.click(screen.getByLabelText("a"));
-    expect(onChange).toHaveBeenCalledWith(["a", "b"]);
+  it("the same type can be added multiple times — each click emits a fresh onAdd", () => {
+    const onAdd = vi.fn();
+    const types = [createMockView("a")];
+    render(<AddViewMenu addableTypes={types} onAdd={onAdd} />);
+    fireEvent.click(screen.getByTestId("add-view-button"));
+    fireEvent.click(screen.getByTestId("add-view-a"));
+    fireEvent.click(screen.getByTestId("add-view-button"));
+    fireEvent.click(screen.getByTestId("add-view-a"));
+    expect(onAdd).toHaveBeenCalledTimes(2);
+    expect(onAdd).toHaveBeenNthCalledWith(1, "a");
+    expect(onAdd).toHaveBeenNthCalledWith(2, "a");
+  });
+
+  it("shows an empty-state message when nothing is addable", () => {
+    render(<AddViewMenu addableTypes={[]} onAdd={() => {}} />);
+    fireEvent.click(screen.getByTestId("add-view-button"));
+    expect(screen.getByText(/no view types available/i)).toBeTruthy();
   });
 });

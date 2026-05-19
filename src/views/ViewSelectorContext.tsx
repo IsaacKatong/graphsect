@@ -2,12 +2,19 @@ import { createContext, useContext, type ReactNode } from "react";
 import { GraphView } from "./types";
 
 type ViewSelectorContextValue = {
-  views: GraphView[];
-  activeIds: string[];
-  onActiveIdsChange: (next: string[]) => void;
+  /** View types that can be added (everything except the pinned view). */
+  addableTypes: GraphView[];
+  /** Append a new instance of the given view type. */
+  onAdd: (typeId: string) => void;
+  /** Remove an active instance by its unique id. No-ops on the pinned id. */
+  onClose: (instanceId: string) => void;
+  /** Id of the pinned instance — used by per-view headers to suppress its close button. */
+  pinnedInstanceId: string;
 };
 
-const ViewSelectorContext = createContext<ViewSelectorContextValue | null>(null);
+const ViewSelectorContext = createContext<ViewSelectorContextValue | null>(
+  null,
+);
 
 export function ViewSelectorProvider({
   value,

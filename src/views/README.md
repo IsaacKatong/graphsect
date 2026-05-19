@@ -5,12 +5,15 @@ The view-management layer. Everything the user sees of an `ExternalGraph` is a
 
 - Defining the `GraphView` contract.
 - Maintaining the registry of built-in views (filters, tag mesh, plot).
-- Letting the user pick which views are active (multi-select `ViewSelector`).
-- Stacking active views full-width with drag-to-resize heights
-  (`ResizableViewStack`).
-- Feeding every active view a consistent slice of the world: the source graph,
-  the filtered graph, the current filter state, and a setter for the filter
-  state.
+- Letting the user **add** instances of any view type via `AddViewMenu`. The
+  same view type can be added multiple times — each instance carries its own
+  state and its own undo history.
+- Stacking active instances full-width with drag-to-resize heights
+  (`ResizableViewStack`), each non-pinned instance rendered with a small
+  header strip and a close (×) button.
+- Feeding every active instance a consistent slice of the world: the source
+  graph, the filtered graph, the current filter state, the current selection,
+  and the instance's unique id.
 
 ## The GraphView contract
 
@@ -31,6 +34,12 @@ type GraphViewProps = {
   onFilterStateChange: (next: FilterState) => void; // edit the filter state
   selectedDatumId: string | null;                   // globally-selected datum, or null
   onSelectedDatumIdChange: (id: string | null) => void;
+  instanceId: string;                               // unique id for THIS instance
+};
+
+type ViewInstance = {
+  id: string;     // unique across the live stack
+  typeId: string; // references GraphView.id in the registry
 };
 ```
 
@@ -68,25 +77,25 @@ clickable datums can simply ignore the prop.
 All are exported from `builtinViews.ts` and are the default contents of the
 `views` prop on `<GraphSect>`.
 
-## ViewSelector
+## AddViewMenu
 
-A multi-select dropdown that lists togglable views. Each view in the
-selector's `views` prop appears as a checkbox; toggling pushes a new array
-into `activeIds` via `onActiveIdsChange`. The selector preserves the order of
-its `views` prop regardless of the order in which the user enabled views, so
-the stack layout is stable.
+An **Add view** button + dropdown listing every view type in the registry
+(except the pinned filters view). Clicking a type appends a fresh instance to
+the active list. The same type can be added any number of times.
 
-The selector lives inside the pinned `FiltersView` (not in a global toolbar).
+The menu lives inside the pinned `FiltersView` (not in a global toolbar).
 The host renders it via the `ViewSelectorContext` — `<GraphSect>` wraps the
-tree in `<ViewSelectorProvider value={{ views, activeIds, onActiveIdsChange }}>`,
-and `FiltersView` reads it with `useViewSelector()`.
+tree in `<ViewSelectorProvider value={{ addableTypes, onAdd, onClose, pinnedInstanceId }}>`,
+and `FiltersView` reads it with `useViewSelector()`. Closing an instance is
+handled by the × button each non-pinned instance renders in its header
+(also dispatched through `useViewSelector().onClose`).
 
 ## Pinned views
 
-The Filters view is **pinned**: it's always active, can't be toggled off, and
-doesn't appear in the selector's list. `<GraphSect>` enforces this by always
-prepending `FILTERS_VIEW.id` to `activeIds` and by passing only the non-pinned
-views into the context.
+The Filters view is **pinned**: it's always present as a singleton with the
+constant instance id `"filters"`, can't be closed, and doesn't appear in the
+Add view menu. `<GraphSect>` enforces this by re-injecting the pinned
+instance into every `setActiveViews` emission.
 
 If you replace the registry via the `views` prop on `<GraphSect>`, the same
 rule applies to whichever view has id `"filters"` — it remains pinned.
@@ -132,7 +141,7 @@ Views *are* allowed to own their own state (zoom, sliders, scroll position,
 etc.). Whether or not that state participates in the action log is the view's
 call:
 
-- If the state should be undoable, declare it with `useTrackedState(viewId, kind, initial, { debounce })` from `src/action-log/`. The hook records each change as a `VIEW_ACTION` and self-registers an undoer so the Undo button rewinds through the view's setter.
+- If the state should be undoable, declare it with `useTrackedState(instanceId, kind, initial, { debounce })` from `src/action-log/`. **Always use the `instanceId` prop, not the static GraphView id** — that's how two on-screen instances of the same view type keep independent state and independent undo histories. The hook records each change as a `VIEW_ACTION` and self-registers an undoer so the Undo button rewinds through the view's setter.
 - If the state is transient (hover, drag-in-progress flag, animation frame), keep it as plain `useState`.
 
 Use `debounce: true` for anything continuous (drag, wheel zoom, slider) so

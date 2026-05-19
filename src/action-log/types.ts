@@ -1,4 +1,5 @@
 import { FilterState } from "../filtering/types";
+import { ViewInstance } from "../views/types";
 
 type ActionBase = {
   seq: number;
@@ -14,10 +15,10 @@ export type FilterChangedAction = ActionBase & {
 
 export type ViewsChangedAction = ActionBase & {
   type: "VIEWS_CHANGED";
-  prev: string[];
-  next: string[];
-  added: string[];
-  removed: string[];
+  prev: ViewInstance[];
+  next: ViewInstance[];
+  added: ViewInstance[];
+  removed: ViewInstance[];
 };
 
 export type SelectionChangedAction = ActionBase & {

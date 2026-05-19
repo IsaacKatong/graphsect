@@ -18,14 +18,18 @@ beforeAll(() => {
 });
 
 describe("ViewManager", () => {
-  it("renders only the active views, in registry order", () => {
+  it("renders one entry per active instance, in active-list order", () => {
     const views = [createMockView("a"), createMockView("b"), createMockView("c")];
     const graph = createMockGraph();
-    // Active list passed out-of-order; manager should still render in registry order.
+    // Two instances of "a" plus one of "c", in the order the user added them.
     render(
       <ViewManager
         views={views}
-        activeIds={["c", "a"]}
+        activeViews={[
+          { id: "a-1", typeId: "a" },
+          { id: "c-1", typeId: "c" },
+          { id: "a-2", typeId: "a" },
+        ]}
         sourceGraph={graph}
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
@@ -35,10 +39,11 @@ describe("ViewManager", () => {
       />,
     );
 
-    const rendered = screen.queryAllByTestId(/^view-/);
+    const rendered = screen.queryAllByTestId(/^view-instance-/);
     expect(rendered.map((el) => el.getAttribute("data-testid"))).toEqual([
-      "view-a",
-      "view-c",
+      "view-instance-a-1",
+      "view-instance-c-1",
+      "view-instance-a-2",
     ]);
   });
 
@@ -48,7 +53,7 @@ describe("ViewManager", () => {
     render(
       <ViewManager
         views={views}
-        activeIds={[]}
+        activeViews={[]}
         sourceGraph={graph}
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
@@ -60,14 +65,14 @@ describe("ViewManager", () => {
     expect(screen.getByText(/no views selected/i)).toBeTruthy();
   });
 
-  it("passes the filtered graph to each active view", () => {
+  it("passes the filtered graph to each active instance", () => {
     const views = [createMockView("a")];
     const sourceGraph = createMockGraph();
     const filteredGraph = { ...sourceGraph, datums: sourceGraph.datums.slice(0, 1) };
     render(
       <ViewManager
         views={views}
-        activeIds={["a"]}
+        activeViews={[{ id: "a-1", typeId: "a" }]}
         sourceGraph={sourceGraph}
         filteredGraph={filteredGraph}
         filterState={EMPTY_FILTER_STATE}
@@ -76,7 +81,6 @@ describe("ViewManager", () => {
         onSelectedDatumIdChange={() => {}}
       />,
     );
-    // mockView prints `datums:<count>` from the `graph` prop (filtered graph).
     expect(screen.getByTestId("view-a").textContent).toContain("datums:1");
   });
 
@@ -103,7 +107,7 @@ describe("ViewManager", () => {
     render(
       <ViewManager
         views={views}
-        activeIds={["a"]}
+        activeViews={[{ id: "a-1", typeId: "a" }]}
         sourceGraph={graph}
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
@@ -119,28 +123,22 @@ describe("ViewManager", () => {
     });
   });
 
-  it("threads the global selection state through to every view", () => {
-    // Two views both look at the same selectedDatumId and call the same
-    // setter. That's how the App-level NodeDetailPanel ends up with one
-    // detail panel shared across all views.
+  it("threads the global selection state through to every instance", () => {
     const onSelectedDatumIdChange = vi.fn();
     const views = [
       createMockView("a", {
-        Component: ({ selectedDatumId, onSelectedDatumIdChange }) => (
-          <div data-testid="view-a">
-            <span data-testid="sel-a">{selectedDatumId ?? "none"}</span>
+        Component: ({ selectedDatumId, onSelectedDatumIdChange, instanceId }) => (
+          <div data-testid={`view-${instanceId}`}>
+            <span data-testid={`sel-${instanceId}`}>
+              {selectedDatumId ?? "none"}
+            </span>
             <button
-              data-testid="pick-a"
-              onClick={() => onSelectedDatumIdChange("from-view-a")}
+              data-testid={`pick-${instanceId}`}
+              onClick={() => onSelectedDatumIdChange("from-" + instanceId)}
             >
               pick
             </button>
           </div>
-        ),
-      }),
-      createMockView("b", {
-        Component: ({ selectedDatumId }) => (
-          <span data-testid="sel-b">{selectedDatumId ?? "none"}</span>
         ),
       }),
     ];
@@ -148,7 +146,10 @@ describe("ViewManager", () => {
     render(
       <ViewManager
         views={views}
-        activeIds={["a", "b"]}
+        activeViews={[
+          { id: "a-1", typeId: "a" },
+          { id: "a-2", typeId: "a" },
+        ]}
         sourceGraph={graph}
         filteredGraph={graph}
         filterState={EMPTY_FILTER_STATE}
@@ -158,12 +159,13 @@ describe("ViewManager", () => {
       />,
     );
 
-    // Both views observe the same selection prop.
-    expect(screen.getByTestId("sel-a").textContent).toBe("seed");
-    expect(screen.getByTestId("sel-b").textContent).toBe("seed");
+    // Both instances observe the same shared selection.
+    expect(screen.getByTestId("sel-a-1").textContent).toBe("seed");
+    expect(screen.getByTestId("sel-a-2").textContent).toBe("seed");
 
-    // A click in view A bubbles the new id back through the manager.
-    screen.getByTestId("pick-a").click();
-    expect(onSelectedDatumIdChange).toHaveBeenCalledWith("from-view-a");
+    // The clicker reports its own instance id, demonstrating instances are
+    // distinct components even when they share a view type.
+    screen.getByTestId("pick-a-2").click();
+    expect(onSelectedDatumIdChange).toHaveBeenCalledWith("from-a-2");
   });
 });

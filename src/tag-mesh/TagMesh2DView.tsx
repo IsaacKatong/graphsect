@@ -18,6 +18,8 @@ type TagMesh2DViewProps = {
   data: ForceGraphData;
   params: TagMeshParams;
   scores: ReadonlyMap<string, number>;
+  /** Per-instance id used as the viewId for tracked viewport state. */
+  instanceId: string;
 };
 
 type Viewport = { pan: { x: number; y: number }; zoom: number };
@@ -39,6 +41,7 @@ export default function TagMesh2DView({
   data,
   params,
   scores,
+  instanceId,
 }: TagMesh2DViewProps) {
   const layout = useMemo(
     () => buildTagMeshLayout(data, params, scores),
@@ -97,7 +100,7 @@ export default function TagMesh2DView({
   // Reset collapse to a single undoable action. Debounced so a drag/wheel
   // gesture records once per gesture, not per pixel.
   const [viewport, setViewport] = useTrackedState<Viewport>(
-    "tag-mesh",
+    instanceId,
     "viewport",
     INITIAL_VIEWPORT,
     { debounce: true },

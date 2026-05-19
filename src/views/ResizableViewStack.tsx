@@ -6,31 +6,37 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { GraphView } from "./types";
+import { GraphView, ViewInstance } from "./types";
 import { clampDragHeight } from "./resize";
 import { useTrackedState } from "../action-log/useTrackedState";
+import { useViewSelector } from "./ViewSelectorContext";
 
 const DEFAULT_MIN_HEIGHT = 200;
 
+export type StackEntry = { instance: ViewInstance; view: GraphView };
+
 type ResizableViewStackProps = {
-  views: GraphView[];
-  renderView: (view: GraphView) => ReactNode;
+  entries: StackEntry[];
+  renderView: (entry: StackEntry) => ReactNode;
 };
 
 export default function ResizableViewStack({
-  views,
+  entries,
   renderView,
 }: ResizableViewStackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
+  const [, setContainerHeight] = useState(0);
   // Drags are continuous (mousemove per pixel), so debounce to one action
   // per gesture. The third tuple slot, `seedHeights`, updates without
-  // recording — used by the init effect that seeds new views' starting
+  // recording — used by the init effect that seeds new instances' starting
   // heights so initialization doesn't show up in undo.
   const [heights, setHeights, seedHeights] = useTrackedState<
     Record<string, number>
   >("view-stack", "heights", {}, { debounce: true });
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const selector = useViewSelector();
+  const pinnedInstanceId = selector?.pinnedInstanceId;
+  const onClose = selector?.onClose;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -44,34 +50,34 @@ export default function ResizableViewStack({
     return () => ro.disconnect();
   }, []);
 
-  // Initialize each non-last view to its declared minHeight. The last view is
-  // flex:1, so it absorbs whatever space the non-last views haven't claimed —
-  // this means a heavy visualization placed last gets the bulk of the space by
-  // default, while compact views like a filter row sit at their minimum.
+  // Initialize each non-last instance to its declared minHeight. The last
+  // instance is flex:1, so it absorbs whatever space the non-last instances
+  // haven't claimed. Heights are keyed by INSTANCE id, so two instances of
+  // the same view type get independent heights.
   useEffect(() => {
-    if (views.length === 0) return;
+    if (entries.length === 0) return;
     seedHeights((prev) => {
-      const nonLast = views.slice(0, -1);
-      const unsized = nonLast.filter((v) => prev[v.id] === undefined);
+      const nonLast = entries.slice(0, -1);
+      const unsized = nonLast.filter((e) => prev[e.instance.id] === undefined);
       if (unsized.length === 0) return prev;
       const next = { ...prev };
-      for (const v of unsized) {
-        next[v.id] = v.minHeight ?? DEFAULT_MIN_HEIGHT;
+      for (const e of unsized) {
+        next[e.instance.id] = e.view.minHeight ?? DEFAULT_MIN_HEIGHT;
       }
       return next;
     });
-  }, [views, seedHeights]);
+  }, [entries, seedHeights]);
 
   const startResize = useCallback(
-    (viewAboveId: string, minH: number, e: React.MouseEvent) => {
+    (instanceId: string, minH: number, e: React.MouseEvent) => {
       e.preventDefault();
       const startY = e.clientY;
-      const startH = heights[viewAboveId] ?? minH;
-      setDraggingId(viewAboveId);
+      const startH = heights[instanceId] ?? minH;
+      setDraggingId(instanceId);
 
       const onMove = (ev: MouseEvent) => {
         const next = clampDragHeight(startH, ev.clientY - startY, minH);
-        setHeights((prev) => ({ ...prev, [viewAboveId]: next }));
+        setHeights((prev) => ({ ...prev, [instanceId]: next }));
       };
       const onUp = () => {
         setDraggingId(null);
@@ -81,32 +87,52 @@ export default function ResizableViewStack({
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     },
-    [heights],
+    [heights, setHeights],
   );
 
   return (
     <div ref={containerRef} style={containerStyle}>
-      {views.map((view, i) => {
-        const isLast = i === views.length - 1;
+      {entries.map((entry, i) => {
+        const { instance, view } = entry;
+        const isLast = i === entries.length - 1;
         const minH = view.minHeight ?? DEFAULT_MIN_HEIGHT;
-        const h = heights[view.id] ?? minH;
+        const h = heights[instance.id] ?? minH;
         const flex = isLast ? "1 1 0" : `0 0 ${h}px`;
-        const isDragging = draggingId === view.id;
+        const isDragging = draggingId === instance.id;
+        const isPinned = instance.id === pinnedInstanceId;
         return (
-          <Fragment key={view.id}>
+          <Fragment key={instance.id}>
             <div
+              data-testid={`view-instance-${instance.id}`}
               style={{
                 flex,
                 minHeight: minH,
                 position: "relative",
                 width: "100%",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              {renderView(view)}
+              {!isPinned && (
+                <div style={headerStyle}>
+                  <span style={headerNameStyle}>{view.name}</span>
+                  {onClose && (
+                    <button
+                      onClick={() => onClose(instance.id)}
+                      title="Close view"
+                      style={closeButtonStyle}
+                      data-testid={`close-${instance.id}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
+              <div style={bodyStyle}>{renderView(entry)}</div>
             </div>
             {!isLast && (
               <div
-                onMouseDown={(e) => startResize(view.id, minH, e)}
+                onMouseDown={(e) => startResize(instance.id, minH, e)}
                 style={{
                   ...handleStyle,
                   background: isDragging ? "#6366f1" : "#1e293b",
@@ -136,4 +162,48 @@ const handleStyle: React.CSSProperties = {
   borderTop: "1px solid #334155",
   borderBottom: "1px solid #334155",
   transition: "background 0.1s ease",
+};
+
+const headerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "4px 12px",
+  backgroundColor: "#1e293b",
+  borderBottom: "1px solid #334155",
+  fontFamily: "system-ui, sans-serif",
+  fontSize: 12,
+  color: "#94a3b8",
+  flexShrink: 0,
+};
+
+const headerNameStyle: React.CSSProperties = {
+  fontWeight: 600,
+};
+
+const closeButtonStyle: React.CSSProperties = {
+  backgroundColor: "transparent",
+  color: "#94a3b8",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#475569",
+  borderRadius: 4,
+  width: 20,
+  height: 20,
+  lineHeight: "16px",
+  textAlign: "center",
+  fontSize: 14,
+  cursor: "pointer",
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontFamily: "system-ui, sans-serif",
+};
+
+const bodyStyle: React.CSSProperties = {
+  flex: "1 1 auto",
+  minHeight: 0,
+  position: "relative",
+  width: "100%",
 };

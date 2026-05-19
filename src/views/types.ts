@@ -15,6 +15,13 @@ export type GraphViewProps = {
    */
   selectedDatumId: string | null;
   onSelectedDatumIdChange: (id: string | null) => void;
+  /**
+   * Unique id for THIS instance of the view. Multiple instances of the same
+   * GraphView can be on screen at once; views should pass this id (not the
+   * GraphView's static `id`) as the first argument to `useTrackedState` so
+   * their per-instance state doesn't collide.
+   */
+  instanceId: string;
 };
 
 export type GraphView = {
@@ -22,4 +29,14 @@ export type GraphView = {
   name: string;
   minHeight?: number;
   Component: ComponentType<GraphViewProps>;
+};
+
+/**
+ * One live entry in the active-views list. `id` is unique across the stack
+ * (used everywhere instances are keyed: heights, useTrackedState, undo
+ * registry). `typeId` references a `GraphView.id` in the registry.
+ */
+export type ViewInstance = {
+  id: string;
+  typeId: string;
 };

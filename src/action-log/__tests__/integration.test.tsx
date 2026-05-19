@@ -139,28 +139,33 @@ describe("GraphSect action pipeline", () => {
 
     expect(selector).not.toBeNull();
 
+    // Add an "other" instance, then close it. Each operation is one action.
     act(() => {
-      // Add "other" to the active list.
-      selector!.onActiveIdsChange(["probe", "other"]);
+      selector!.onAdd("other");
     });
+    // The newly-added instance id can be read off the second action's `added`.
+    let addedInstanceId: string;
+    {
+      const viewActions = actions.filter((a) => a.type === "VIEWS_CHANGED");
+      const add = viewActions[viewActions.length - 1];
+      if (add.type !== "VIEWS_CHANGED") throw new Error("unreachable");
+      expect(add.added).toHaveLength(1);
+      expect(add.added[0].typeId).toBe("other");
+      expect(add.removed).toEqual([]);
+      addedInstanceId = add.added[0].id;
+    }
     act(() => {
-      // Remove "probe" — the host re-pins "filters" automatically.
-      selector!.onActiveIdsChange(["other"]);
+      selector!.onClose(addedInstanceId);
     });
 
     const viewActions = actions.filter((a) => a.type === "VIEWS_CHANGED");
     expect(viewActions).toHaveLength(2);
-
-    const [add, remove] = viewActions;
-    if (add.type !== "VIEWS_CHANGED" || remove.type !== "VIEWS_CHANGED") {
-      throw new Error("unreachable");
-    }
-    expect(add.added).toEqual(["other"]);
-    expect(add.removed).toEqual([]);
-    expect(remove.added).toEqual([]);
-    expect(remove.removed).toEqual(["probe"]);
-    // The pinned filters view stays in `next` across both transitions.
-    expect(remove.next).toContain("filters");
+    const close = viewActions[1];
+    if (close.type !== "VIEWS_CHANGED") throw new Error("unreachable");
+    expect(close.removed.map((v) => v.id)).toEqual([addedInstanceId]);
+    expect(close.added).toEqual([]);
+    // The pinned filters instance stays in `next` across both transitions.
+    expect(close.next.map((v) => v.id)).toContain("filters");
   });
 
   it("Undo button rewinds each action type, pops the log, and does not fire onAction", () => {
@@ -222,7 +227,7 @@ describe("GraphSect action pipeline", () => {
     });
     // 3) Views change.
     act(() => {
-      selector!.onActiveIdsChange(["probe", "inspector", "other"]);
+      selector!.onAdd("other");
     });
 
     expect(actions.map((a) => a.type)).toEqual([
@@ -275,16 +280,14 @@ describe("GraphSect action pipeline", () => {
   it("VIEW_ACTION: a tracked-state set is recorded and undo routes to the view's setter", () => {
     let setLocal!: (n: number) => void;
     let observed = -1;
+    let observedInstanceId = "";
     const Tracked: GraphView = {
       id: "tracked-probe",
       name: "tracked",
       minHeight: 100,
-      Component: () => {
-        const [v, set] = useTrackedState<number>(
-          "tracked-probe",
-          "count",
-          0,
-        );
+      Component: ({ instanceId }) => {
+        observedInstanceId = instanceId;
+        const [v, set] = useTrackedState<number>(instanceId, "count", 0);
         observed = v;
         setLocal = set;
         return <div data-testid="view-tracked-probe">{v}</div>;
@@ -300,6 +303,8 @@ describe("GraphSect action pipeline", () => {
       />,
     );
 
+    expect(observedInstanceId).toMatch(/^tracked-probe-\d+$/);
+
     act(() => {
       setLocal(42);
     });
@@ -307,7 +312,7 @@ describe("GraphSect action pipeline", () => {
     expect(actions).toHaveLength(1);
     const recorded = actions[0];
     if (recorded.type !== "VIEW_ACTION") throw new Error("unreachable");
-    expect(recorded.viewId).toBe("tracked-probe");
+    expect(recorded.viewId).toBe(observedInstanceId);
     expect(recorded.kind).toBe("count");
     expect(recorded.prev).toBe(0);
     expect(recorded.next).toBe(42);
@@ -382,6 +387,120 @@ describe("GraphSect action pipeline", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("two instances of the same view type keep independent tracked state", () => {
+    const setters = new Map<string, (n: number) => void>();
+    const values = new Map<string, number>();
+    const Tracked: GraphView = {
+      id: "twin",
+      name: "twin",
+      minHeight: 100,
+      Component: ({ instanceId }) => {
+        const [v, set] = useTrackedState<number>(instanceId, "count", 0);
+        setters.set(instanceId, set);
+        values.set(instanceId, v);
+        return <div data-testid={`twin-${instanceId}`}>{v}</div>;
+      },
+    };
+    let selector: ReturnType<typeof useViewSelector> = null;
+    const SelectorProbe: GraphView = {
+      id: "selector-probe",
+      name: "sp",
+      minHeight: 100,
+      Component: () => {
+        selector = useViewSelector();
+        return null;
+      },
+    };
+
+    render(
+      <GraphSect
+        graph={createMockGraph()}
+        views={[FILTERS_VIEW, Tracked, SelectorProbe]}
+        defaultActiveViewIds={["twin", "selector-probe"]}
+      />,
+    );
+
+    // Add a second twin instance.
+    act(() => {
+      selector!.onAdd("twin");
+    });
+    const ids = [...setters.keys()].filter((k) => k.startsWith("twin-"));
+    expect(ids).toHaveLength(2);
+    const [first, second] = ids;
+
+    // Set the first's count; the second's should not change.
+    act(() => {
+      setters.get(first)!(7);
+    });
+    expect(values.get(first)).toBe(7);
+    expect(values.get(second)).toBe(0);
+
+    // And vice versa.
+    act(() => {
+      setters.get(second)!(99);
+    });
+    expect(values.get(first)).toBe(7);
+    expect(values.get(second)).toBe(99);
+
+    // Undo rewinds the most recent action — i.e. the second's set, not the first's.
+    act(() => {
+      fireEvent.click(screen.getByTestId("undo-button"));
+    });
+    expect(values.get(second)).toBe(0);
+    expect(values.get(first)).toBe(7);
+  });
+
+  it("closing a view records VIEWS_CHANGED with removed[].id matching the closed instance", () => {
+    let selector: ReturnType<typeof useViewSelector> = null;
+    const SP: GraphView = {
+      id: "sp",
+      name: "sp",
+      minHeight: 100,
+      Component: () => {
+        selector = useViewSelector();
+        return null;
+      },
+    };
+    const other: GraphView = {
+      id: "other",
+      name: "other",
+      minHeight: 100,
+      Component: ({ instanceId }) => (
+        <div data-testid={`other-${instanceId}`} />
+      ),
+    };
+    const actions: Action[] = [];
+    render(
+      <GraphSect
+        graph={createMockGraph()}
+        views={[FILTERS_VIEW, SP, other]}
+        defaultActiveViewIds={["sp"]}
+        onAction={(a) => actions.push(a)}
+      />,
+    );
+
+    act(() => {
+      selector!.onAdd("other");
+    });
+    const lastAdd = actions[actions.length - 1];
+    if (lastAdd.type !== "VIEWS_CHANGED") throw new Error("unreachable");
+    const addedId = lastAdd.added[0].id;
+
+    act(() => {
+      selector!.onClose(addedId);
+    });
+    const lastClose = actions[actions.length - 1];
+    if (lastClose.type !== "VIEWS_CHANGED") throw new Error("unreachable");
+    expect(lastClose.removed.map((v) => v.id)).toEqual([addedId]);
+    expect(screen.queryByTestId(`other-${addedId}`)).toBeNull();
+
+    // Undo reopens the closed instance with the same id.
+    act(() => {
+      fireEvent.click(screen.getByTestId("undo-button"));
+    });
+    expect(screen.getByTestId(`other-${addedId}`)).toBeTruthy();
   });
 
   it("a fresh GraphSect has the Undo button disabled", () => {

@@ -1,7 +1,7 @@
 import FilterPanel from "../../filter-panel/FilterPanel";
 import { EMPTY_FILTER_STATE, FilterState } from "../../filtering/types";
 import { GraphViewProps } from "../types";
-import ViewSelector from "../ViewSelector";
+import AddViewMenu from "../ViewSelector";
 import { useViewSelector } from "../ViewSelectorContext";
 import UndoButton from "../../action-log/UndoButton";
 
@@ -34,10 +34,9 @@ export default function FiltersView({
       <div style={selectorSlotStyle}>
         <UndoButton />
         {selector && (
-          <ViewSelector
-            views={selector.views}
-            activeIds={selector.activeIds}
-            onActiveIdsChange={selector.onActiveIdsChange}
+          <AddViewMenu
+            addableTypes={selector.addableTypes}
+            onAdd={selector.onAdd}
           />
         )}
       </div>

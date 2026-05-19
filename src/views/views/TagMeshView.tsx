@@ -15,11 +15,12 @@ const DEFAULT_PARAMS: TagMeshParams = {
   hierarchyDistance: 100,
 };
 
-export default function TagMeshView({ graph }: GraphViewProps) {
+export default function TagMeshView({ graph, instanceId }: GraphViewProps) {
   // Sliders fire many setParams calls per drag; debounce so one drag gesture
-  // collapses into one undoable action.
+  // collapses into one undoable action. Keyed by the per-instance id so
+  // multiple tag-mesh views on screen have independent sliders.
   const [params, setParams] = useTrackedState<TagMeshParams>(
-    "tag-mesh",
+    instanceId,
     "params",
     DEFAULT_PARAMS,
     { debounce: true },
@@ -29,7 +30,12 @@ export default function TagMeshView({ graph }: GraphViewProps) {
 
   return (
     <div style={containerStyle}>
-      <TagMesh2DView data={data} params={params} scores={scores} />
+      <TagMesh2DView
+        data={data}
+        params={params}
+        scores={scores}
+        instanceId={instanceId}
+      />
       <TagMeshControls params={params} onChange={setParams} />
     </div>
   );

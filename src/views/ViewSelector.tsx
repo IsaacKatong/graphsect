@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { GraphView } from "./types";
 
-type ViewSelectorProps = {
-  views: GraphView[];
-  activeIds: string[];
-  onActiveIdsChange: (next: string[]) => void;
+type AddViewMenuProps = {
+  /** View types that can be added (everything except the pinned filters view). */
+  addableTypes: GraphView[];
+  /** Append one new instance of the given view type. */
+  onAdd: (typeId: string) => void;
 };
 
-export default function ViewSelector({
-  views,
-  activeIds,
-  onActiveIdsChange,
-}: ViewSelectorProps) {
+/**
+ * "Add view" button + menu. Each click appends a new instance, so the same
+ * view type can be added multiple times — every instance carries its own
+ * independent state. Reorder/close happens through each instance's header.
+ */
+export default function AddViewMenu({ addableTypes, onAdd }: AddViewMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -30,45 +32,33 @@ export default function ViewSelector({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  function toggle(id: string) {
-    if (activeIds.includes(id)) {
-      onActiveIdsChange(activeIds.filter((x) => x !== id));
-    } else {
-      // Preserve registry order so the stack render order is stable.
-      const next = views
-        .filter((v) => v.id === id || activeIds.includes(v.id))
-        .map((v) => v.id);
-      onActiveIdsChange(next);
-    }
-  }
-
   return (
     <div ref={containerRef} style={containerStyle}>
       <button
         onClick={() => setOpen(!open)}
-        style={{
-          ...buttonStyle,
-          ...(activeIds.length > 0 ? activeButtonStyle : {}),
-        }}
+        style={buttonStyle}
+        data-testid="add-view-button"
       >
-        Views
-        {activeIds.length > 0 && (
-          <span style={badgeStyle}>{activeIds.length}</span>
-        )}
+        + Add view
       </button>
       {open && (
         <div style={dropdownStyle}>
-          {views.map((view) => (
-            <label key={view.id} style={optionStyle}>
-              <input
-                type="checkbox"
-                checked={activeIds.includes(view.id)}
-                onChange={() => toggle(view.id)}
-                style={checkboxStyle}
-              />
+          {addableTypes.map((view) => (
+            <button
+              key={view.id}
+              onClick={() => {
+                onAdd(view.id);
+                setOpen(false);
+              }}
+              style={optionStyle}
+              data-testid={`add-view-${view.id}`}
+            >
               {view.name}
-            </label>
+            </button>
           ))}
+          {addableTypes.length === 0 && (
+            <div style={emptyOptionStyle}>No view types available</div>
+          )}
         </div>
       )}
     </div>
@@ -83,30 +73,16 @@ const containerStyle: React.CSSProperties = {
 };
 
 const buttonStyle: React.CSSProperties = {
-  backgroundColor: "#334155",
+  backgroundColor: "#4f46e5",
   color: "#e2e8f0",
-  border: "1px solid #475569",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#6366f1",
   borderRadius: "6px",
   padding: "6px 12px",
   fontSize: "13px",
   cursor: "pointer",
   fontFamily: "system-ui, sans-serif",
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-};
-
-const activeButtonStyle: React.CSSProperties = {
-  backgroundColor: "#4f46e5",
-  borderColor: "#6366f1",
-};
-
-const badgeStyle: React.CSSProperties = {
-  backgroundColor: "rgba(255, 255, 255, 0.2)",
-  borderRadius: "10px",
-  padding: "0 6px",
-  fontSize: "11px",
-  fontWeight: 600,
 };
 
 const dropdownStyle: React.CSSProperties = {
@@ -115,7 +91,9 @@ const dropdownStyle: React.CSSProperties = {
   right: 0,
   marginTop: "4px",
   backgroundColor: "#1e293b",
-  border: "1px solid #475569",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#475569",
   borderRadius: "6px",
   padding: "6px 0",
   minWidth: "200px",
@@ -123,19 +101,26 @@ const dropdownStyle: React.CSSProperties = {
   overflowY: "auto",
   zIndex: 100,
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+  display: "flex",
+  flexDirection: "column",
 };
 
 const optionStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
+  display: "block",
+  textAlign: "left",
   padding: "6px 12px",
   fontSize: "13px",
   color: "#e2e8f0",
   cursor: "pointer",
   fontFamily: "system-ui, sans-serif",
+  backgroundColor: "transparent",
+  border: "none",
+  width: "100%",
 };
 
-const checkboxStyle: React.CSSProperties = {
-  accentColor: "#6366f1",
+const emptyOptionStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: "12px",
+  color: "#64748b",
+  fontFamily: "system-ui, sans-serif",
 };

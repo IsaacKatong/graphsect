@@ -100,7 +100,7 @@ You can also hide the default filter panel while still using the built-in filter
 | `hideDefaultFilters?` | `boolean` | Hide the default filter panel |
 | `views?` | `GraphView[]` | Replace the default view registry |
 | `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view |
-| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount |
+| `defaultActiveViewIds?` | `string[]` | View type ids active on first mount. Each entry seeds one instance; the same type can appear more than once. |
 | `onAction?` | `(action: Action) => void` | Receive every user action that changes filters, the active view list, or the selected datum |
 | `debounceMs?` | `number` | Window (ms) for collapsing rapid `useTrackedState` updates into one action (default: 300) |
 
@@ -145,9 +145,37 @@ is monotonic across every action type, so the log is a single total order.
 | Type | Payload |
 |---|---|
 | `FILTER_CHANGED` | `prev`, `next` (full `FilterState`), `changedKeys` (which slices flipped) |
-| `VIEWS_CHANGED` | `prev`, `next` (view-id arrays), `added`, `removed` |
+| `VIEWS_CHANGED` | `prev`, `next` (arrays of `ViewInstance`), `added`, `removed` |
 | `SELECTION_CHANGED` | `prev`, `next` (datum id or `null`) |
 | `VIEW_ACTION` | `viewId`, `kind`, `prev`, `next` — emitted by views that opt into tracking via `useTrackedState` |
+
+### Multi-instance views
+
+Each entry of the active-view list is a `ViewInstance`:
+
+```ts
+type ViewInstance = {
+  id: string;     // unique across the whole stack
+  typeId: string; // references a GraphView.id in the registry
+};
+```
+
+The same view type can be added to the stack multiple times — clicking the
+**Add view** menu in the filters toolbar appends a fresh instance with its
+own auto-generated id. Each instance gets its own header strip with a close
+(×) button. The pinned filters view is always present and can't be closed.
+
+Inside a view component, the `instanceId` prop is the unique id for *this*
+instance. Pass it to `useTrackedState` so two on-screen instances of the same
+type (e.g. two tag-mesh views) keep their viewport, sliders, and any other
+tracked state independent of each other.
+
+When a view instance is closed, all its `useTrackedState` undoers deregister.
+Any past `VIEW_ACTION` for that instance still sits in the log; clicking Undo
+will pop the action but applying its `prev` is a silent no-op (since the
+view is gone). Undoing the close itself reopens the same instance id; React
+mounts a fresh component, so prior tracked state inside that instance is
+**not** restored.
 
 ### Tracking view-local state
 
@@ -158,14 +186,17 @@ Undo, declare it with `useTrackedState` instead of `useState`:
 ```tsx
 import { useTrackedState } from "graphsect";
 
-function MyView() {
+function MyView({ instanceId }: GraphViewProps) {
+  // Pass `instanceId` as the first arg so two on-screen MyView instances
+  // each keep their own tracked state.
+
   // Discrete state — every change is recorded immediately.
-  const [page, setPage] = useTrackedState<number>("my-view", "page", 1);
+  const [page, setPage] = useTrackedState<number>(instanceId, "page", 1);
 
   // Continuous state — multiple sets within `debounceMs` collapse into one
   // action so a gesture (drag, scroll, wheel zoom) costs one undo step.
   const [zoom, setZoom] = useTrackedState<number>(
-    "my-view",
+    instanceId,
     "zoom",
     1,
     { debounce: true },

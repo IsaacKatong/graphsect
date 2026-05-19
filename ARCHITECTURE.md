@@ -25,7 +25,7 @@ ExternalGraph (source)
   ExternalGraph (filtered) ────────────────────────────────────────┘
        │
        ▼
-  ViewManager  (activeIds always include the pinned Filters view)
+  ViewManager  (active instances always include the pinned Filters view)
        │
        ├── for each active view ──→ ResizableViewStack
        │
@@ -34,7 +34,7 @@ ExternalGraph (source)
        │
        ├── FiltersView (pinned) ──── writes filterState ──── (closes loop into applyFilters)
        │       │
-       │       └── hosts ViewSelector via ViewSelectorContext (multi-select non-pinned views)
+       │       └── hosts AddViewMenu via ViewSelectorContext (appends one instance per click)
        ├── TagMeshView ─── transformGraph() + computeTagScores() ──→ TagMesh2DView (SVG)
        ├── PlotGraphView ─ PlotView (Plotly) ──→ onSelectedDatumIdChange(datumId)
        └── CarouselsView ─ runs each Carousel.selection(graph) ──→ tag rectangles
@@ -106,7 +106,7 @@ when a filter would otherwise drop it from the post-filter graph.
 ### 7. View Management
 
 `src/views/` contains the `GraphView` abstraction, the view registry, the
-multi-select `ViewSelector`, and the `ResizableViewStack` that arranges
+add-and-close `AddViewMenu`, and the `ResizableViewStack` that arranges
 active views top to bottom at full width with drag-resizable heights
 (clamped to each view's `minHeight`). The five built-in views — Filters,
 Tag Mesh, Plot, Carousels, Datum List — each implement the `GraphView`
@@ -139,4 +139,4 @@ datums carrying that tag.
 | `customGraphFilter?` | `CustomGraphFilter` | Replace all built-in filtering |
 | `views?` | `GraphView[]` | Replace the default view registry (defaults to `BUILTIN_VIEWS`) |
 | `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view (ignored when `views` is also passed) |
-| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount (defaults to `["filters", "datum-list"]`) |
+| `defaultActiveViewIds?` | `string[]` | View type ids active on first mount; each entry seeds one instance (defaults to `["filters", "datum-list"]`) |

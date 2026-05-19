@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import { ExternalGraph } from "../external-graph/types";
 import { FilterState } from "../filtering/types";
 import ResizableViewStack from "./ResizableViewStack";
-import { GraphView } from "./types";
+import { GraphView, ViewInstance } from "./types";
 
 type ViewManagerProps = {
   views: GraphView[];
-  activeIds: string[];
+  activeViews: ViewInstance[];
   sourceGraph: ExternalGraph;
   filteredGraph: ExternalGraph;
   filterState: FilterState;
@@ -15,9 +15,15 @@ type ViewManagerProps = {
   onSelectedDatumIdChange: (id: string | null) => void;
 };
 
+/**
+ * Active instances are rendered in the order they were added (the order in
+ * `activeViews`). This is intentional: with multiple instances of the same
+ * view type allowed, the user controls the stack order by add order, not by
+ * a fixed registry order.
+ */
 export default function ViewManager({
   views,
-  activeIds,
+  activeViews,
   sourceGraph,
   filteredGraph,
   filterState,
@@ -25,25 +31,37 @@ export default function ViewManager({
   selectedDatumId,
   onSelectedDatumIdChange,
 }: ViewManagerProps) {
-  // Active views render in registry order, not selection order, so the stack
-  // is stable regardless of which order the user toggled views on.
-  const active = useMemo(
-    () => views.filter((v) => activeIds.includes(v.id)),
-    [views, activeIds],
+  const viewsByType = useMemo(() => {
+    const m = new Map<string, GraphView>();
+    for (const v of views) m.set(v.id, v);
+    return m;
+  }, [views]);
+
+  const stackEntries = useMemo(
+    () =>
+      activeViews
+        .map((instance) => {
+          const view = viewsByType.get(instance.typeId);
+          return view ? { instance, view } : null;
+        })
+        .filter((e): e is { instance: ViewInstance; view: GraphView } => e !== null),
+    [activeViews, viewsByType],
   );
 
-  if (active.length === 0) {
+  if (stackEntries.length === 0) {
     return (
       <div style={emptyStyle}>
-        <p style={emptyTextStyle}>No views selected. Use the Views menu to add one.</p>
+        <p style={emptyTextStyle}>
+          No views selected. Use the Add view menu to add one.
+        </p>
       </div>
     );
   }
 
   return (
     <ResizableViewStack
-      views={active}
-      renderView={(view) => (
+      entries={stackEntries}
+      renderView={({ instance, view }) => (
         <view.Component
           sourceGraph={sourceGraph}
           graph={filteredGraph}
@@ -51,6 +69,7 @@ export default function ViewManager({
           onFilterStateChange={onFilterStateChange}
           selectedDatumId={selectedDatumId}
           onSelectedDatumIdChange={onSelectedDatumIdChange}
+          instanceId={instance.id}
         />
       )}
     />

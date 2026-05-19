@@ -1,4 +1,5 @@
 import { FilterState } from "../filtering/types";
+import { ViewInstance } from "../views/types";
 
 export function diffFilterState(
   prev: FilterState,
@@ -8,14 +9,14 @@ export function diffFilterState(
   return keys.filter((k) => prev[k] !== next[k]);
 }
 
-export function diffViewIds(
-  prev: string[],
-  next: string[],
-): { added: string[]; removed: string[] } {
-  const prevSet = new Set(prev);
-  const nextSet = new Set(next);
+export function diffViews(
+  prev: ViewInstance[],
+  next: ViewInstance[],
+): { added: ViewInstance[]; removed: ViewInstance[] } {
+  const prevIds = new Set(prev.map((v) => v.id));
+  const nextIds = new Set(next.map((v) => v.id));
   return {
-    added: next.filter((id) => !prevSet.has(id)),
-    removed: prev.filter((id) => !nextSet.has(id)),
+    added: next.filter((v) => !prevIds.has(v.id)),
+    removed: prev.filter((v) => !nextIds.has(v.id)),
   };
 }
