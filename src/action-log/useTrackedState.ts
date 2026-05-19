@@ -39,7 +39,7 @@ export function useTrackedState<T>(
   kind: string,
   initial: T | (() => T),
   options: Options = {},
-): [T, Dispatch<SetStateAction<T>>] {
+): [T, Dispatch<SetStateAction<T>>, Dispatch<SetStateAction<T>>] {
   const { debounce = false } = options;
   const { record, registerUndoer, debounceMs } = useActionLogInternals();
 
@@ -127,5 +127,27 @@ export function useTrackedState<T>(
     [debounce, debounceMs, record, viewId, kind],
   );
 
-  return [value, set];
+  // Update state + baseline without recording an action. Useful for
+  // initializing or syncing to external defaults (e.g. when a new view is
+  // added to a resizable stack, the host needs to seed its starting height
+  // without that initialization showing up in undo). Cancels any pending
+  // debounce so a half-formed gesture isn't recorded against the new
+  // baseline.
+  const setUntracked = useCallback((update: SetStateAction<T>) => {
+    const prev = liveRef.current;
+    const next =
+      typeof update === "function"
+        ? (update as (p: T) => T)(prev)
+        : update;
+    if (Object.is(prev, next)) return;
+    if (pendingTimerRef.current !== null) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
+    liveRef.current = next;
+    baselineRef.current = next;
+    setValue(next);
+  }, []);
+
+  return [value, set, setUntracked];
 }

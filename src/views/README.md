@@ -143,6 +143,11 @@ that updates both zoom and pan), keep them in **one** tracked object so the
 undo step matches the user's mental model — see `tag-mesh/TagMesh2DView.tsx`
 for an example with a combined `viewport`.
 
+`useTrackedState` returns a third tuple slot — an untracked setter — for
+non-user-driven changes that shouldn't show up in undo (e.g.
+`ResizableViewStack` uses it to seed a starting height when a new view is
+added to the stack, since that's initialization rather than a user gesture).
+
 ## Files
 
 - `types.ts` — the `GraphView` / `GraphViewProps` contract.

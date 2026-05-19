@@ -202,6 +202,53 @@ describe("useTrackedState", () => {
     expect(log.getSnapshot()).toHaveLength(0);
   });
 
+  it("setUntracked updates value + baseline without recording", () => {
+    let log!: ReturnType<typeof useActionLog>;
+    let setSeed!: (n: number) => void;
+    let setTracked!: (n: number) => void;
+    function ProbeWithSeed() {
+      const [, set, seed] = useTrackedState<number>("probe", "count", 0);
+      setSeed = seed;
+      setTracked = set;
+      return null;
+    }
+    function H() {
+      const l = useActionLog();
+      log = l;
+      return (
+        <ActionLogProvider
+          value={{
+            subscribe: l.subscribe,
+            getSnapshot: l.getSnapshot,
+            record: l.record,
+            registerUndoer: l.registerUndoer,
+            undo: () => {},
+            debounceMs: DEFAULT_DEBOUNCE_MS,
+          }}
+        >
+          <ProbeWithSeed />
+        </ActionLogProvider>
+      );
+    }
+    render(<H />);
+
+    act(() => {
+      setSeed(50);
+    });
+    expect(log.getSnapshot()).toHaveLength(0);
+
+    // The next tracked set's `prev` should be the seeded value, not the
+    // original initial (0) — confirming setUntracked moved the baseline.
+    act(() => {
+      setTracked(60);
+    });
+    const snap = log.getSnapshot();
+    expect(snap).toHaveLength(1);
+    if (snap[0].type !== "VIEW_ACTION") throw new Error("unreachable");
+    expect(snap[0].prev).toBe(50);
+    expect(snap[0].next).toBe(60);
+  });
+
   it("undoing a debounced gesture cancels the pending timer (no double record)", () => {
     let log!: ReturnType<typeof useActionLog>;
     let setValue!: (n: number) => void;

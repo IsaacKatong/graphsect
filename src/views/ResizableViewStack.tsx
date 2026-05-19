@@ -8,6 +8,7 @@ import {
 } from "react";
 import { GraphView } from "./types";
 import { clampDragHeight } from "./resize";
+import { useTrackedState } from "../action-log/useTrackedState";
 
 const DEFAULT_MIN_HEIGHT = 200;
 
@@ -22,7 +23,13 @@ export default function ResizableViewStack({
 }: ResizableViewStackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
-  const [heights, setHeights] = useState<Record<string, number>>({});
+  // Drags are continuous (mousemove per pixel), so debounce to one action
+  // per gesture. The third tuple slot, `seedHeights`, updates without
+  // recording — used by the init effect that seeds new views' starting
+  // heights so initialization doesn't show up in undo.
+  const [heights, setHeights, seedHeights] = useTrackedState<
+    Record<string, number>
+  >("view-stack", "heights", {}, { debounce: true });
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +50,7 @@ export default function ResizableViewStack({
   // default, while compact views like a filter row sit at their minimum.
   useEffect(() => {
     if (views.length === 0) return;
-    setHeights((prev) => {
+    seedHeights((prev) => {
       const nonLast = views.slice(0, -1);
       const unsized = nonLast.filter((v) => prev[v.id] === undefined);
       if (unsized.length === 0) return prev;
@@ -53,7 +60,7 @@ export default function ResizableViewStack({
       }
       return next;
     });
-  }, [views]);
+  }, [views, seedHeights]);
 
   const startResize = useCallback(
     (viewAboveId: string, minH: number, e: React.MouseEvent) => {

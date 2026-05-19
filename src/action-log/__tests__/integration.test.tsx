@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import GraphSect from "../../App";
 import { createMockGraph } from "../../external-graph/__fixtures__/mockGraph";
@@ -320,6 +320,68 @@ describe("GraphSect action pipeline", () => {
     expect((screen.getByTestId("undo-button") as HTMLButtonElement).disabled).toBe(true);
     // Undo did not emit a new action.
     expect(actions).toHaveLength(1);
+  });
+
+  it("Resize: dragging a stack handle records one VIEW_ACTION and undo reverts it", async () => {
+    vi.useFakeTimers();
+    try {
+      const captured: Captured = { props: null };
+      const probe = makeCapturingView("probe", captured);
+      const second: GraphView = {
+        id: "second",
+        name: "second",
+        minHeight: 100,
+        Component: () => <div data-testid="view-second" />,
+      };
+      const actions: Action[] = [];
+      const { container } = render(
+        <GraphSect
+          graph={createMockGraph()}
+          views={[FILTERS_VIEW, probe, second]}
+          defaultActiveViewIds={["probe", "second"]}
+          onAction={(a) => actions.push(a)}
+        />,
+      );
+
+      // Two resize handles exist (between filters/probe and probe/second).
+      // Grab the second one and drag.
+      const handles = container.querySelectorAll('[title="Drag to resize"]');
+      expect(handles.length).toBeGreaterThan(0);
+      const handle = handles[handles.length - 1] as HTMLElement;
+
+      act(() => {
+        fireEvent.mouseDown(handle, { clientY: 400 });
+      });
+      act(() => {
+        fireEvent.mouseMove(window, { clientY: 450 });
+        fireEvent.mouseMove(window, { clientY: 500 });
+      });
+      act(() => {
+        fireEvent.mouseUp(window);
+      });
+
+      // No action yet — still in debounce window.
+      expect(actions.filter((a) => a.type === "VIEW_ACTION")).toHaveLength(0);
+
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+
+      const viewActions = actions.filter((a) => a.type === "VIEW_ACTION");
+      expect(viewActions).toHaveLength(1);
+      const action = viewActions[0];
+      if (action.type !== "VIEW_ACTION") throw new Error("unreachable");
+      expect(action.viewId).toBe("view-stack");
+      expect(action.kind).toBe("heights");
+
+      // Undo rewinds heights to the pre-drag baseline.
+      act(() => {
+        fireEvent.click(screen.getByTestId("undo-button"));
+      });
+      expect((screen.getByTestId("undo-button") as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a fresh GraphSect has the Undo button disabled", () => {

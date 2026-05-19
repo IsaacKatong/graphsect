@@ -180,6 +180,26 @@ The hook self-registers an undoer keyed by `(viewId, kind)`. Undo applies the
 recorded `prev` value through the hook's own setter, so the view stays in
 control of its state.
 
+The hook returns a **third** tuple slot — an "untracked" setter that updates
+the value and the undo baseline without recording an action. Use it for
+non-user-driven changes that should not appear in undo (initializing defaults
+when a new view is added to a stack, syncing to an external store, etc.):
+
+```tsx
+const [heights, setHeights, seedHeights] = useTrackedState<Record<string, number>>(
+  "view-stack",
+  "heights",
+  {},
+  { debounce: true },
+);
+
+// User-driven drag: tracked, debounced into one undo step.
+setHeights((prev) => ({ ...prev, [id]: newHeight }));
+
+// Programmatic init when a new view is added: not an action.
+seedHeights((prev) => ({ ...prev, [newViewId]: minHeight }));
+```
+
 **Tracking decision per piece of state:**
 
 - User-driven and meaningful to undo? → `useTrackedState`. Pick `debounce: true` for anything continuous.
