@@ -51,7 +51,7 @@ type GraphSectProps = {
 };
 
 const PINNED_VIEW_ID = FILTERS_VIEW.id;
-const DEFAULT_ACTIVE_VIEW_IDS = [PINNED_VIEW_ID, "tag-mesh"];
+const DEFAULT_ACTIVE_VIEW_IDS = [PINNED_VIEW_ID, "datum-list"];
 
 function ensurePinned(ids: string[]): string[] {
   return ids.includes(PINNED_VIEW_ID) ? ids : [PINNED_VIEW_ID, ...ids];

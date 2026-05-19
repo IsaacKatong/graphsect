@@ -139,4 +139,4 @@ datums carrying that tag.
 | `customGraphFilter?` | `CustomGraphFilter` | Replace all built-in filtering |
 | `views?` | `GraphView[]` | Replace the default view registry (defaults to `BUILTIN_VIEWS`) |
 | `carousels?` | `Carousel[]` | Override the carousels shown inside the built-in Carousels view (ignored when `views` is also passed) |
-| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount (defaults to `["filters", "tag-mesh"]`) |
+| `defaultActiveViewIds?` | `string[]` | Which view ids are active on first mount (defaults to `["filters", "datum-list"]`) |
