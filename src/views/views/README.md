@@ -2,11 +2,10 @@
 
 The built-in `GraphView` implementations. Each file in here exports a
 `GraphView`-compatible component that wraps an existing visualisation
-(`filter-panel`, `tag-mesh`, `plotting`) and adapts it to the
-`GraphViewProps` contract defined in `../types.ts`.
+(`tag-mesh`, `plotting`) and adapts it to the `GraphViewProps` contract
+defined in `../types.ts`. The filter buttons themselves are **not** a view —
+they live in the top-level [`src/Toolbar.tsx`](../../Toolbar.tsx).
 
-- `FiltersView.tsx` — surfaces `FilterPanel`. Writes `filterState`, reads
-  `sourceGraph` to enumerate options.
 - `TagMeshView.tsx` — surfaces `TagMesh2DView` + `TagMeshControls`. Reads the
   filtered `graph`, runs `transformGraph` plus `computeTagScores` (the same
   score the carousels use) and threads both into the layout.
@@ -17,6 +16,9 @@ The built-in `GraphView` implementations. Each file in here exports a
 - `CarouselsView.tsx` — renders one section per `Carousel`. Exports
   `createCarouselsView(carousels?)` so the caller can build a view bound to
   their own list (the default registry uses `DEFAULT_CAROUSELS`).
+- `DatumListView.tsx` — scrollable list of every datum in the post-filter
+  graph; clicks set `selectedDatumId`. Scroll position is tracked via
+  `useTrackedState`, so it participates in undo.
 
 If you're adding another view, keep its body small — the heavy work belongs
 in the underlying feature folder. The wrapper exists only to (a) translate

@@ -20,9 +20,12 @@ describe("useActionLog", () => {
       });
       result.current.record({
         type: "VIEWS_CHANGED",
-        prev: ["filters"],
-        next: ["filters", "tag-mesh"],
-        added: ["tag-mesh"],
+        prev: [{ id: "datum-list-1", typeId: "datum-list" }],
+        next: [
+          { id: "datum-list-1", typeId: "datum-list" },
+          { id: "tag-mesh-2", typeId: "tag-mesh" },
+        ],
+        added: [{ id: "tag-mesh-2", typeId: "tag-mesh" }],
         removed: [],
       });
     });

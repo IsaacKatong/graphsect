@@ -23,6 +23,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     expect(screen.getByText("Most Connected")).toBeTruthy();
@@ -43,6 +44,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     fireEvent.click(screen.getByTitle("tag-b"));
@@ -66,6 +68,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     fireEvent.click(screen.getByTitle("tag-c"));
@@ -89,6 +92,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     fireEvent.click(screen.getByTitle("tag-a"));
@@ -112,6 +116,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     fireEvent.click(screen.getByTitle("tag-b"));
@@ -137,6 +142,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[mostConnected]}
+        instanceId="test"
       />,
     );
     const highlighted = (title: string) =>
@@ -161,6 +167,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[custom, mostConnected]}
+        instanceId="test"
       />,
     );
     const headings = screen
@@ -197,6 +204,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[probe]}
+        instanceId="test"
       />,
     );
     // The probe should have seen the filtered (1-datum) graph, not the source.
@@ -215,6 +223,7 @@ describe("CarouselsView", () => {
         selectedDatumId={null}
         onSelectedDatumIdChange={() => {}}
         carousels={[blank]}
+        instanceId="test"
       />,
     );
     expect(screen.getByText(/no tags/i)).toBeTruthy();

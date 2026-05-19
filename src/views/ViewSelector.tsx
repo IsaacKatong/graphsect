@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GraphView } from "./types";
 
 type AddViewMenuProps = {
-  /** View types that can be added (everything except the pinned filters view). */
+  /** View types that can be added. */
   addableTypes: GraphView[];
   /** Append one new instance of the given view type. */
   onAdd: (typeId: string) => void;

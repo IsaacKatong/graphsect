@@ -47,7 +47,8 @@ type ViewInstance = {
 A view receives both the raw `sourceGraph` (e.g. to enumerate all possible
 filter options) and the `graph` that's already had the current filter state
 applied (what most views actually render). It may optionally update
-`filterState` — that's how the built-in filter view contributes to the pipeline.
+`filterState` — that's how the Carousels view contributes new tag filters
+when a tag is clicked, for example.
 
 Because the filter state and the external graph live above all views, every
 active view re-renders whenever either changes — there is no per-view stale
@@ -157,16 +158,18 @@ added to the stack, since that's initialization rather than a user gesture).
 
 ## Files
 
-- `types.ts` — the `GraphView` / `GraphViewProps` contract.
-- `ViewManager.tsx` — picks the active views (in registry order) and renders
-  them through `ResizableViewStack`.
-- `ViewSelector.tsx` — multi-select dropdown component (hosted inside the
-  pinned `FiltersView`).
+- `types.ts` — the `GraphView` / `GraphViewProps` / `ViewInstance` contract.
+- `ViewManager.tsx` — picks the active instances (in active-list order) and
+  renders them through `ResizableViewStack`.
+- `ViewSelector.tsx` — `AddViewMenu` button + dropdown component (hosted by
+  the top-level `<Toolbar>`).
 - `ViewSelectorContext.tsx` — `ViewSelectorProvider` / `useViewSelector` for
-  delivering the selector's state to whichever view embeds it.
-- `ResizableViewStack.tsx` — vertical stack with drag-to-resize handles.
+  delivering add / close handles to whoever embeds the menu.
+- `ResizableViewStack.tsx` — vertical stack with drag-to-resize handles and a
+  per-instance header + close button.
 - `resize.ts` — pure resize math.
 - `builtinViews.ts` — the registry of default views.
-- `views/FiltersView.tsx`, `views/TagMeshView.tsx`, `views/PlotGraphView.tsx`
-  — the built-in views, each wrapping the existing legacy component.
+- `views/TagMeshView.tsx`, `views/PlotGraphView.tsx`, `views/CarouselsView.tsx`,
+  `views/DatumListView.tsx` — the built-in views, each wrapping its
+  underlying visualisation.
 - `index.ts` — public re-exports.
